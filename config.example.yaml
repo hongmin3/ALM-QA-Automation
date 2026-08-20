@@ -1,0 +1,117 @@
+# Polarion Work Item 검색/백업 설정
+# 이 파일을 복사해 config.yaml로 저장한 뒤, 사내 환경에 맞게 값을 채우세요.
+#   cp config.example.yaml config.yaml
+polarion:
+  host: "https://your-polarion-server.example.com"
+  project_id: "YOUR_PROJECT_ID"
+  token_env: "POLARION_TOKEN"
+  verify_ssl: true
+  timeout_seconds: 90
+  request_interval_seconds: 0.15
+  page_size: 100
+
+search:
+  # 가장 안전한 방법:
+  # Polarion 검색 화면에서 Query Pane > Convert to Text로 변환한 문자열을 그대로 붙여넣으세요.
+  #
+  # 표시명(사용자 이름)과 내부 사용자 ID가 다를 수 있으므로,
+  # 화면을 보고 직접 추측한 쿼리보다 Convert to Text 결과가 안전합니다.
+  #
+  # 아래 값은 예시이며, author/status/version의 내부 ID와 커스텀 필드 ID는
+  # 사내 Polarion 설정에 따라 다를 수 있습니다.
+  query: 'status:(in_progress in_review reopened verified) AND author.id:(YOUR_USER_ID) AND occurredVersion.KEY:(YOUR_PROJECT_1_0_0_001) AND NOT defectScore.KEY:grade_d'
+
+  # 페이지 중복/누락 위험을 줄이기 위해 정렬을 반드시 지정합니다.
+  sort: "id"
+
+  # 0이면 제한 없이 전부 수집합니다.
+  max_items: 0
+
+fields:
+  # REST API가 노출하는 모든 Work Item 속성을 가져옵니다.
+  workitem_sparse_fields: "@all"
+  comment_sparse_fields: "@all"
+  attachment_sparse_fields: "@all"
+  linkeditem_sparse_fields: "@all"
+
+  # HTML/Markdown 출력에서 제외할 필드 ID.
+  # key는 실제 REST 응답 attributes의 필드 ID입니다.
+  # 사내 커스텀 필드 ID가 다르면 backup.json 또는 field_inventory.json을 보고 수정하세요.
+  hidden_fields:
+    - "severity"
+    - "cmcgIssue"
+    - "jira"
+    - "productStage"
+    - "riskEvaluation"
+    - "defectSeverity"
+    - "defectProbability"
+    - "created"
+    - "updated"
+    - "priority"
+    - "rndReviewResult"
+
+  # 문서 최상단에 우선 배치할 중요 필드
+  priority_fields:
+    - {key: "occurrenceCause", label: "발생원인(Root Cause)"}
+    - {key: "actionDetails", label: "조치내역(수정사항) Resolution"}
+
+  display:
+    - {key: "type", label: "Type"}
+    - {key: "project", label: "Project"}
+    - {key: "author", label: "Author"}
+    - {key: "assignee", label: "Assignee(s)"}
+    - {key: "reviewer", label: "Reviewer"}
+    - {key: "status", label: "Status"}
+    - {key: "resolution", label: "Resolution"}
+    - {key: "releaseVision", label: "Release Vision"}
+    - {key: "occurredInVersion", label: "Occurred in Version"}
+    - {key: "targetVersion", label: "Target Version"}
+    - {key: "closeVersion", label: "Close Version"}
+    - {key: "rdReviewResult", label: "R&D Review Result"}
+    - {key: "qaReviewResult", label: "QA Review Result"}
+    - {key: "issueOccurredAt", label: "이슈 발생날짜/시간"}
+    - {key: "defectRisk", label: "Defect Risk"}
+    - {key: "frequency", label: "Frequency"}
+    - {key: "testItem", label: "시험항목"}
+    - {key: "issueCategory", label: "이슈구분"}
+    - {key: "rootCause", label: "발생원인(Root Cause)"}
+    - {key: "resolutionAction", label: "조치내역(수정사항) Resolution"}
+    - {key: "buildId", label: "Build ID"}
+    - {key: "platform", label: "Platform"}
+    - {key: "environmentDescription", label: "Environment Description"}
+    - {key: "description", label: "재현 방법(Reproduction Step)"}
+    - {key: "titleEn", label: "Title(en)"}
+    - {key: "reproductionStepEn", label: "재현 방법(Reproduction Step) En"}
+    - {key: "log", label: "로그(log)"}
+    - {key: "logPath", label: "로그경로"}
+
+output:
+  directory: "polarion_backup"
+  html_filename: "polarion_query_backup.html"
+
+  # AI(GPTs) 분석용 경량 Markdown 통합 문서 생성 여부
+  generate_markdown: true
+  md_filename: "polarion_query_backup.md"
+
+  # 이슈별 report.html을 각 [이슈ID]/ 폴더에 개별 저장할지 여부
+  # (전체 대신 이슈 1건만 GPT에 첨부하고 싶을 때 사용)
+  generate_per_issue_html: true
+
+  download_attachments: true
+
+  # 아래 확장자는 목록만 남기고 실제 파일은 다운로드하지 않습니다.
+  skip_attachment_extensions:
+    - ".mp4"
+    - ".avi"
+    - ".mov"
+    - ".wmv"
+    - ".mkv"
+    - ".webm"
+
+  # 개별 첨부파일 실패가 Work Item 전체 실패로 번지지 않게 합니다.
+  continue_on_attachment_error: true
+
+  embed_images_in_html: true
+  enrich_linked_workitems: true
+  save_raw_json: true
+  save_field_inventory: true
