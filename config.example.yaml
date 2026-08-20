@@ -89,6 +89,12 @@ output:
   directory: "polarion_backup"
   html_filename: "polarion_query_backup.html"
 
+  # 최종 PDF 생성 여부 (Playwright 내장 Chromium으로 인쇄).
+  # PDF 생성이 실패해도 HTML/Markdown은 정상적으로 남습니다.
+  generate_pdf: true
+  pdf_filename: "polarion_query_backup.pdf"
+  pdf_landscape: false
+
   # AI(GPTs) 분석용 경량 Markdown 통합 문서 생성 여부
   generate_markdown: true
   md_filename: "polarion_query_backup.md"

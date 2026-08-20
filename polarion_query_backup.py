@@ -1885,6 +1885,53 @@ def make_markdown(
     return "\n".join(lines)
 
 
+def generate_pdf_from_html(
+    html_path: Path,
+    pdf_path: Path,
+    landscape: bool = False,
+) -> None:
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as exception:
+        raise RuntimeError(
+            "playwright가 설치되어 있지 않습니다. "
+            "python -m pip install playwright 후 "
+            "python -m playwright install chromium 을 실행하세요."
+        ) from exception
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+
+            try:
+                page = browser.new_page()
+                page.goto(html_path.resolve().as_uri())
+                page.emulate_media(media="print")
+                page.pdf(
+                    path=str(pdf_path),
+                    format="A4",
+                    landscape=landscape,
+                    print_background=True,
+                    margin={
+                        "top": "12mm",
+                        "bottom": "14mm",
+                        "left": "12mm",
+                        "right": "12mm",
+                    },
+                )
+            finally:
+                browser.close()
+
+    except Exception as exception:
+        if "Executable doesn't exist" in str(exception):
+            raise RuntimeError(
+                "Playwright용 Chromium이 설치되어 있지 않습니다. "
+                "python -m playwright install chromium 을 실행하세요."
+            ) from exception
+
+        raise
+
+
 def prepare_output_directory(output_directory: Path) -> None:
     resolved = output_directory.resolve()
 
@@ -1970,6 +2017,7 @@ def main() -> None:
     generate_per_issue_html = bool(
         output_config.get("generate_per_issue_html", True)
     )
+    generate_pdf = bool(output_config.get("generate_pdf", True))
 
     skip_extensions = {
         (
@@ -2370,6 +2418,24 @@ def main() -> None:
         ),
         encoding="utf-8",
     )
+
+    if generate_pdf:
+        pdf_path = output_directory / output_config.get(
+            "pdf_filename",
+            "polarion_query_backup.pdf",
+        )
+
+        try:
+            generate_pdf_from_html(
+                html_path,
+                pdf_path,
+                landscape=bool(output_config.get("pdf_landscape", False)),
+            )
+            print(f"PDF: {pdf_path.resolve()}")
+        except Exception as exception:
+            print(
+                f"PDF 생성 실패 (HTML/Markdown은 정상 생성됨): {exception}"
+            )
 
     if generate_markdown:
         md_path = output_directory / output_config.get(

@@ -1,15 +1,19 @@
-# AI 분석을 위한 ALM 이슈 HTML/Markdown Export 자동화
+# AI 분석을 위한 ALM 이슈 PDF/HTML/Markdown Export 자동화
 
 Polarion(ALM)의 검색 조건에 해당하는 Work Item을 REST API로 수집하고, 본문·댓글·연관
-사양/이슈·첨부 이미지를 포함한 **사람이 보기 좋은 HTML**과 **GPT 등 LLM에 붙여넣기 좋은
-경량 Markdown**으로 동시에 변환하는 자동화 스크립트입니다.
+사양/이슈·첨부 이미지를 포함한 **최종 보관/공유용 PDF**, **웹에서 바로 보는 HTML**,
+**GPT 등 LLM에 붙여넣기 좋은 경량 Markdown** 세 가지로 동시에 변환하는 자동화 스크립트입니다.
 
 ALM 자체는 이슈를 잘 저장하지만, 그 데이터를 외부 도구나 AI가 바로 분석하기 좋은 형태로
 내보내 주지는 않습니다. 이 스크립트는 그 사이에 있는 "데이터 전처리 계층" 역할을 합니다.
 
 ```
-ALM 원본 데이터  →  Python 자동화 (검색·정리·이미지 복원)  →  HTML / Markdown  →  GPT 분석
+ALM 원본 데이터  →  Python 자동화 (검색·정리·이미지 복원)  →  PDF / HTML / Markdown  →  GPT 분석
 ```
+
+> PDF는 예전에는 이슈마다 수동으로 인쇄해서 만들었지만, 지금은 Playwright 내장
+> Chromium이 HTML을 그대로 인쇄해서 자동으로 만들어 줍니다. HTML/Markdown은 항상 함께
+> 생성되므로, PDF 변환에 실패해도(예: Chromium 미설치) 다른 두 결과물은 그대로 남습니다.
 
 ## 스크린샷
 
@@ -64,11 +68,17 @@ ALM 안에서는 이슈를 잘 볼 수 있지만, 밖에서 활용하기는 어�
   파일을 함께 생성해서, 텍스트 분석이 목적일 때 더 가볍게 사용할 수 있습니다.
 - **이슈별 개별 HTML 분리 저장**: 전체 결과가 아니라 이슈 1건만 GPT에 첨부하고 싶을 때를
   위해, 각 `[이슈ID]/report.html`도 함께 생성합니다.
+- **최종 PDF 자동 생성**: HTML을 Playwright 내장 Chromium으로 그대로 인쇄해 `.pdf`로
+  저장합니다. 이슈마다 새 페이지로 나뉘고(A4), 이전에 수동으로 하던 "HTML 인쇄해서 PDF
+  만들기" 작업이 사라집니다. PDF 생성이 실패해도 HTML/Markdown은 정상적으로 남습니다.
 
 ## 설치
 
 ```powershell
 python -m pip install -r requirements.txt
+
+# PDF 생성에 쓰는 Chromium 다운로드 (최초 1회)
+python -m playwright install chromium
 ```
 
 ## PAT(Personal Access Token) 설정
@@ -117,7 +127,8 @@ search:
 
 ```
 polarion_backup/
-├─ polarion_query_backup.html   # 사람이 보는 통합 문서 (요약 대시보드 + 목차 + 이슈 전체)
+├─ polarion_query_backup.pdf    # 최종 보관/공유용 PDF (요약 대시보드 + 목차 + 이슈 전체)
+├─ polarion_query_backup.html   # 사람이 보는 통합 문서 (PDF와 동일한 내용의 웹 버전)
 ├─ polarion_query_backup.md     # GPT 등에 붙여넣기 좋은 경량 Markdown
 ├─ field_inventory.json         # 조회된 필드 ID 목록
 ├─ manifest.json                # 처리 건수 / 실패 내역
@@ -129,8 +140,10 @@ polarion_backup/
 
 ## GPT 등 AI 분석에 활용할 때
 
-- **HTML**을 첨부하면 이미지까지 포함해서 사람이 검토하듯 볼 수 있습니다. 재현 절차에 캡처
-  이미지가 있는 이슈는 HTML(또는 이슈 폴더 전체)을 첨부하세요.
+- **PDF/HTML**을 첨부하면 이미지까지 포함해서 사람이 검토하듯 볼 수 있습니다. 재현 절차에
+  캡처 이미지가 있는 이슈는 PDF나 HTML(또는 이슈 폴더 전체)을 첨부하세요. 보관·공유용
+  최종 문서로는 PDF를 쓰고, 웹 브라우저에서 바로 열어보거나 링크로 공유할 때는 HTML을
+  쓰면 됩니다. 내용은 동일합니다.
 - **Markdown**은 텍스트 위주 분석(발생원인 분류, 공통 원인 요약, 리포트 초안 작성 등)에
   더 적합합니다. 다만 Markdown 안의 이미지 링크는 로컬 파일 상대경로이기 때문에, GPT
   대화창에 **텍스트만 붙여넣으면 이미지가 보이지 않습니다.** 이미지까지 함께 봐야 하는
@@ -165,6 +178,10 @@ Polarion 접속 없이 출력 형식을 먼저 확인하고 싶을 때 열어보
 
 - **v4**: 동영상 첨부 미다운로드 처리, 첨부파일 실패 격리, Edge PDF 한글 경로 우회
 - **v5**: 연결 Work Item 상세 조회로 사양/이슈 구분, 본문 이미지 Base64 임베드
-- **v6 (현재)**: PDF 생성 기능 제거(미사용 코드 정리), AI 분석용 경량 Markdown 동시 출력,
-  요약 대시보드, 목차(TOC) 내비게이션, 이슈별 개별 HTML 분리 저장, Author/Assignee/Reviewer
-  relationship 필드 정상 표시
+- **v6**: (당시) PDF 생성 기능 제거, AI 분석용 경량 Markdown 동시 출력, 요약 대시보드,
+  목차(TOC) 내비게이션, 이슈별 개별 HTML 분리 저장, Author/Assignee/Reviewer relationship
+  필드 정상 표시
+- **v7 (현재)**: PDF 최종 출력을 Playwright 기반으로 재도입. 기존 Edge 헤드리스 CLI
+  방식은 한글 경로·비정상 종료 코드 문제로 신뢰성이 낮아 제거했었는데, Playwright 내장
+  Chromium의 `page.pdf()`로 다시 구현해 훨씬 안정적으로 동작합니다. PDF 생성이 실패해도
+  HTML/Markdown 출력에는 영향이 없습니다.
