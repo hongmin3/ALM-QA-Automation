@@ -57,3 +57,17 @@ def list_snapshot_dates(snapshots_root: Path) -> list[str]:
 def find_previous_snapshot_date(snapshots_root: Path, current_date_str: str) -> str | None:
     dates = [d for d in list_snapshot_dates(snapshots_root) if d < current_date_str]
     return dates[-1] if dates else None
+
+
+def find_baseline_snapshot_date(snapshots_root: Path, since_date_str: str, current_date_str: str) -> str | None:
+    """임의 기준일에 대한 비교 기준 스냅샷을 고른다.
+
+    요청한 날짜에 스냅샷이 없을 수 있으므로(자동화가 매일 도는 것이 아니다),
+    **요청일 이하에서 가장 늦은** 스냅샷을 쓴다. 그런 것이 없으면 None을 반환하고,
+    호출부가 사용 가능한 날짜를 안내한다 - 임의로 다른 날짜를 골라 조용히 비교하면
+    사용자가 "7월 25일 기준"이라고 믿는 리포트가 실제로는 다른 기준이 된다.
+    """
+    candidates = [d for d in list_snapshot_dates(snapshots_root) if since_date_str >= d and d < current_date_str]
+    if candidates:
+        return candidates[-1]
+    return None

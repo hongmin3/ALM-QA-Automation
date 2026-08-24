@@ -91,6 +91,8 @@ def _apply_known_problem_cache(
     known_problem_srs: set[str],
     problem_state: ProblemState | None,
     recheck_known: bool,
+    timeout_seconds: int,
+    tmp_dir_factory,
 ) -> list[dict]:
     """이미 문제로 확인된 SRS 중 '본문이 그대로인' 것만 이분 탐색 없이 즉시 격리한다.
 
@@ -101,17 +103,13 @@ def _apply_known_problem_cache(
         return []
 
     pre_isolated: list[dict] = []
+    stale: list[dict] = []
     for rec in group.records:
         uid = rec.get("uid")
         if uid not in known_problem_srs:
             continue
         if problem_state is not None and not problem_state.is_still_valid(uid, rec.get("content_html")):
-            logger.warning(
-                "[%s] %s 는 known_problem_srs로 등록되어 있으나 본문이 변경되었습니다 "
-                "- 캐시를 무시하고 정상 렌더링을 재확인합니다.",
-                group.display_name,
-                uid,
-            )
+            stale.append(rec)
             continue
         rec["render_fallback_reason"] = "known_problem_cache"
         _plaintext_fallback(rec)
@@ -122,7 +120,59 @@ def _apply_known_problem_cache(
             group.display_name,
             uid,
         )
+
+    # 본문(또는 렌더링 파이프라인)이 바뀐 기존 문제 SRS는 반드시 재확인해야 한다. 다만
+    # 그룹 전체 이분 탐색으로 다시 찾는 것은 낭비다 - 어느 SRS를 의심해야 하는지 이미
+    # 알고 있으므로 **그 SRS만 단독으로 렌더링**해 판정한다.
+    # (실측: 2026-08-24 실행에서 VP-1277 본문이 바뀌어 이분 탐색이 다시 돌았고
+    #  depth 6까지 내려가며 전체 실행이 48분 걸렸다. 단독 검증은 1회 시도로 끝난다.)
+    if stale:
+        pre_isolated.extend(
+            _recheck_stale_known_problems(stale, group, problem_state, timeout_seconds, tmp_dir_factory())
+        )
     return pre_isolated
+
+
+def _recheck_stale_known_problems(
+    stale: list[dict],
+    group: FileGroup,
+    problem_state: ProblemState | None,
+    timeout_seconds: int,
+    tmp_dir: Path,
+) -> list[dict]:
+    """본문/파이프라인이 바뀐 기존 문제 SRS를 단독 렌더링으로 재판정한다."""
+    project_label = group.records[0].get("project_id", "") if group.records else ""
+    isolated: list[dict] = []
+    for rec in stale:
+        uid = rec.get("uid")
+        logger.warning(
+            "[%s] %s 는 렌더링 문제로 등록되어 있으나 본문/렌더링 파이프라인이 변경되었습니다 "
+            "- 이분 탐색 대신 해당 SRS만 단독 렌더링해 재확인합니다.",
+            group.display_name,
+            uid,
+        )
+        tag = f"recheck_{str(uid).replace('/', '_')}"
+        if _try_render([rec], group.display_name, project_label, tmp_dir, tag, timeout_seconds):
+            logger.info(
+                "[%s] %s - 단독 렌더링 정상 통과. 서식을 유지하며 정상 렌더링합니다. "
+                "config의 render.known_problem_srs에서 제거하는 것을 검토하세요.",
+                group.display_name,
+                uid,
+            )
+            if problem_state is not None:
+                problem_state.forget(uid)
+            continue
+
+        logger.error(
+            "[%s] %s - 단독 렌더링도 시간 초과(%ds). 여전히 문제 SRS로 판정하고 서식을 단순화합니다.",
+            group.display_name,
+            uid,
+            timeout_seconds,
+        )
+        rec["render_fallback_reason"] = "known_problem_recheck"
+        _plaintext_fallback(rec)
+        isolated.append(rec)
+    return isolated
 
 
 def render_group_pdf_with_recovery(
@@ -148,7 +198,14 @@ def render_group_pdf_with_recovery(
     # fallback이 content_html을 덮어쓰기 전에 원본 해시 기준값을 확보해 둔다.
     original_content = {r.get("uid"): r.get("content_html") for r in group.records}
 
-    pre_isolated = _apply_known_problem_cache(group, known, problem_state, recheck_known)
+    def _tmp_dir() -> Path:
+        d = html_dir / f"_recovery_{group.file_key}"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+
+    pre_isolated = _apply_known_problem_cache(
+        group, known, problem_state, recheck_known, timeout_seconds, _tmp_dir
+    )
 
     main_html_path = html_dir / f"{group.file_key}.html"
     main_html_path.write_text(render_group_html(group, project_label=project_label), encoding="utf-8")

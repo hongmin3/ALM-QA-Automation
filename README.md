@@ -51,7 +51,9 @@ Previous Snapshot Diff  →  Change Report (HTML / Markdown)
 - **SRS 단위 구조적 Diff** - PDF 텍스트 비교가 아니라 SRS ID를 Key로 신규/삭제/변경/동일을 구분하고, Status/Description/이미지/첨부/링크/댓글/서식 변경까지 세분화
 - **주간 자동 실행 + 놓친 실행 보정** - Windows Task Scheduler로 매주 월요일 실행, PC가 꺼져 있었으면 다음 가능 시점에 자동 실행
 - **실패 시 기존 파일 보호** - SRS 개수 불일치, 중복 ID, PDF 생성 실패 등 하나라도 있으면 기존 배포본을 교체하지 않음
-- **버전 보존** - 신규 사양서 반영 전 기존 파일을 날짜별 archive 폴더로 이동
+- **버전 보존 후 자동 정리** - 신규 반영 전 직전 세대를 `ORG/<날짜>/`로 옮겨 두고, 다음 실행이 검증을 통과하면 자동 삭제. ORG에는 항상 직전 세대 하나만 남습니다
+- **결과 메일 알림** - 성공/실패와 무관하게 매 실행 결과를 메일로 발송. 실패했는데 아무도 모르는 상황을 막습니다
+- **임의 기간 지정 리포트** (`--since`) - 주간 리포트와 별도로, 임의의 과거 기준일부터 지금까지의 변경만 뽑아볼 수 있음. 배포/메일 없이 리포트만 생성
 
 ## Architecture
 
@@ -69,7 +71,9 @@ Previous Snapshot Diff  →  Change Report (HTML / Markdown)
 | `src/diff.py` | Snapshot 간 SRS 단위 구조적 Diff |
 | `src/report.py` | 변경 리포트(HTML/Markdown) 생성 |
 | `src/validate.py` | 실행 성공 판정 (개수/중복/PDF 무결성 등) |
-| `src/publish.py` | 검증 통과 시에만 기존 파일 archive 후 신규 반영 |
+| `src/publish.py` | 검증 통과 시에만 직전 세대를 ORG로 보관하고 신규 반영, 지난 세대 자동 정리 |
+| `src/notify.py` | 실행 결과 메일 알림 (발송 실패가 자동화를 실패시키지 않음) |
+| `src/run_marker.py` | 주간 실행 기록 - 부팅 시 만회 실행의 중복 방지 |
 
 ## Change Detection 예시
 
@@ -130,7 +134,37 @@ Changed: 18   New: 5   Deleted: 1   Unchanged: 480+
 
 이 접근은 "완벽한 근본 원인 분석"이 항상 가능하거나 시간 대비 효율적이지 않을 때, **감지 → 격리 → 최소 손실 복구 → 캐시하되 무효화 조건을 명시**로 시스템을 견고하게 만드는 실용적인 패턴을 보여줍니다.
 
+## 기간 지정 리포트 (--since)
+
+주간 정기 실행의 변경 리포트는 항상 "바로 직전 실행 대비"만 보여줍니다. "지난 검증 회차(예: 7월 25일) 이후 뭐가 바뀌었나"처럼 임의의 과거 시점을 기준으로 보고 싶을 때는 별도 조회 모드를 씁니다.
+
+```bash
+python main.py --since 2026-07-25
+```
+
+- Polarion에 기간 내 변경 목록(`updated:[... TO ...]`)을 직접 조회하므로, 그 사이 스냅샷을 매일 쌓아두지 않아도 **어떤 SRS가 바뀌었는지**는 항상 정확합니다.
+- **본문 비교**(무엇이 어떻게 바뀌었는지)는 요청한 기준일 이하로 보관된 스냅샷이 있을 때만 가능합니다. 자동화가 매일 도는 것이 아니라 주간 스냅샷만 쌓이기 때문입니다.
+  - 기준일에 정확히 일치하는 스냅샷이 없으면 그 이하에서 가장 늦은 스냅샷을 기준으로 쓰고, 로그로 어떤 날짜를 썼는지 알립니다.
+  - 기준일 이하 스냅샷이 전혀 없으면 본문 비교 없이 "변경된 SRS 목록"만 리포트하고, 어느 구간부터 비교 가능한지 명시합니다. 조용히 다른 기준으로 바꿔치기하지 않습니다.
+- PDF 생성·지식파일 폴더 반영·메일 발송·주간 실행 마커 기록은 전혀 건드리지 않는 순수 조회 모드입니다.
+
 ## Scheduler
+
+작업 **두 개**를 등록합니다.
+
+| 작업 | 트리거 | 인수 | 역할 |
+|---|---|---|---|
+| `VXvue_SRS_Spec_Automation` | 매주 월요일 **07:00** | `main.py` | 주간 정기 실행 |
+| `VXvue_SRS_Spec_Automation_CatchUp` | **PC 시작 5분 후** | `main.py --catch-up` | 놓친 주 만회 |
+
+### 놓친 실행은 어떻게 만회되나
+
+예정 시각에 PC가 꺼져 있으면 그 주 실행이 통째로 누락됩니다. 두 겹으로 막습니다.
+
+1. **`StartWhenAvailable`** — Windows가 놓친 예정 실행을 다음 가능 시점에 실행합니다. 다만 실행 시점이 OS 사정에 따라 늦어질 수 있습니다.
+2. **부팅 시 `--catch-up` 작업** — PC 시작 5분 후 실행됩니다. `logs/last_run.json`에 **이번 주(월요일 기준 ISO 주)** 실행 기록이 있으면 아무것도 하지 않고 즉시 종료하고, 없으면 놓친 실행을 그때 수행합니다. 그래서 매번 부팅해도 중복 실행되지 않습니다.
+
+**실패한 주는 자동으로 다시 돌리지 않습니다.** 실패도 실행 기록으로 남기므로 부팅 시 재시도되지 않으며, 실패 사실은 메일로 알립니다. 자동 재시도(`RestartCount`)도 0입니다 — 실패를 조용히 반복하지 않고 사람에게 알리는 쪽을 택했습니다.
 
 ### 등록
 
@@ -138,31 +172,32 @@ Changed: 18   New: 5   Deleted: 1   Unchanged: 480+
 .\scripts\install_task.ps1
 ```
 
-`python.exe`는 PATH에서 자동 탐색하며, 필요하면 `-PythonExe "C:\path\to\python.exe"`로 지정할 수 있습니다. 이미 같은 이름의 작업이 있으면 제거 후 재등록하므로 설정 변경 시 그대로 다시 실행하면 됩니다.
+`python.exe`는 PATH에서 자동 탐색하며, `-PythonExe "C:\path\to\python.exe"`로 지정할 수 있습니다. 실행 시각은 `-At "06:30"`처럼 바꿀 수 있습니다. 이미 같은 이름의 작업이 있으면 제거 후 재등록하므로 설정 변경 시 그대로 다시 실행하면 됩니다.
 
-등록되는 조건:
+공통 설정:
 
 | 설정 | 값 | 이유 |
 |---|---|---|
-| Trigger | 매주 월요일 09:00 | 주간 정기 최신화 |
-| `StartWhenAvailable` | True | 예정 시각에 PC가 꺼져 있었으면 다음 가능한 시점에 실행 |
-| `MultipleInstances` | IgnoreNew | 이전 실행이 끝나지 않았으면 중복 실행하지 않음 |
-| Restart | 3회 / 10분 간격 | 일시적 네트워크 오류 대응 |
+| `StartWhenAvailable` | True | 놓친 예정 실행을 다음 가능 시점에 실행 |
+| `MultipleInstances` | IgnoreNew | 정기 실행과 부팅 만회 실행이 겹쳐도 중복 실행 안 함 |
 | `RunOnlyIfNetworkAvailable` | True | Polarion 접근 불가 상태에서 헛돌지 않게 |
 | `ExecutionTimeLimit` | 2시간 | 무한 대기 방지 |
+| `RestartCount` | 0 | 실패 시 자동 재시도 없음 — 메일로 알림 |
 | LogonType | **S4U** | 로그온 여부와 무관하게 실행되며 비밀번호를 저장하지 않음 |
 | **Priority** | **4** | 아래 주의사항 참고 |
 
 > **우선순위 4가 중요한 이유.** Task Scheduler는 작업을 기본 우선순위 7(낮음)로 실행합니다. 이 우선순위에서는 Chromium 인쇄가 크게 느려져, 대화형 실행에서 17~36초에 끝나는 그룹이 90초 제한을 넘겨 실패하는 것을 실제로 확인했습니다. `-Priority 4`(보통)로 등록하면 대화형 실행과 비슷한 속도가 나옵니다. 스케줄러에서만 타임아웃이 발생한다면 이 설정을 먼저 확인하세요.
 
+> **`.ps1` 파일은 UTF-8 BOM으로 저장해야 합니다.** Windows PowerShell 5.1은 BOM이 없는 `.ps1`을 시스템 ANSI 코드페이지로 읽기 때문에, 한글 주석·문자열이 깨지고 파싱 오류까지 발생합니다.
+
 ### 확인
 
 ```powershell
-Get-ScheduledTask -TaskName VXvue_SRS_Spec_Automation | Format-List TaskName, State
+Get-ScheduledTask -TaskName VXvue_SRS_Spec_Automation, VXvue_SRS_Spec_Automation_CatchUp | Format-List TaskName, State
 Get-ScheduledTaskInfo -TaskName VXvue_SRS_Spec_Automation | Format-List LastRunTime, LastTaskResult, NextRunTime
 ```
 
-`LastTaskResult = 0`이면 성공, `1`이면 검증 실패(이 경우 지식파일 폴더는 변경되지 않습니다). 스케줄러에서 즉시 1회 실행해 검증하려면:
+`LastTaskResult = 0`이면 성공, `1`이면 검증 실패(이 경우 지식파일 폴더는 변경되지 않습니다). 스케줄러에서 즉시 1회 실행:
 
 ```powershell
 Start-ScheduledTask -TaskName VXvue_SRS_Spec_Automation
@@ -174,9 +209,30 @@ Start-ScheduledTask -TaskName VXvue_SRS_Spec_Automation
 .\scripts\uninstall_task.ps1
 ```
 
+두 작업을 모두 제거합니다.
+
 ### 인증 정보와 S4U
 
 Polarion 토큰은 환경변수 `POLARION_TOKEN`으로만 전달합니다. S4U 로그온 방식에서도 사용자 환경변수를 읽을 수 있으며, 설정 로드 단계에서 토큰이 없으면 즉시 `ConfigError`로 종료되므로 **스케줄러 실행이 설정 로드를 통과했다는 것 자체가 토큰이 정상 인식됐다는 증거**입니다.
+
+## Notification
+
+매 실행 후 결과를 메일로 보냅니다. 성공이든 실패든 보냅니다 — 주간 자동화에서 가장 위험한 상황은 "실패했는데 아무도 모르는 것"이기 때문입니다.
+
+메일 본문에 담기는 내용:
+
+- 성공/실패 배지, 실행 소요 시간
+- 수집 건수 (프로젝트별 `실제/예상`)
+- 변경 요약 (변경 / 신규 / 삭제 / 동일 건수, 비교 기준 스냅샷)
+- 생성된 PDF 목록과 페이지 수·용량
+- 배포 결과 (지식파일 반영 개수, ORG 보관 개수, ORG 자동 정리 결과)
+- 실패한 검증 항목 (있을 때만)
+- 확인이 필요한 사항 (서식이 단순화된 SRS, 이미지 다운로드 실패 등)
+- 변경 리포트·실행 로그 경로
+
+**SRS 원문은 본문에 담지 않습니다.** 변경 리포트 첨부(`mail.attach_report`)는 기본 꺼져 있습니다 — 켜면 SRS 제목이 메일로 나갑니다.
+
+**메일 발송 실패는 자동화 실패가 아닙니다.** SMTP 오류는 경고 로그만 남기고 종료 코드에 영향을 주지 않습니다 — 사양서는 이미 정상 반영되었을 수 있기 때문입니다.
 
 ## Installation
 
@@ -216,7 +272,35 @@ python main.py --dry-run        # 지식파일 폴더를 건드리지 않고 전
 | `pdf_timeout_seconds` | 300 | PDF 렌더링 1회 시도의 시간제한. 정상 그룹은 대화형 40~70초, 스케줄러(저우선순위)에서는 더 오래 걸립니다. 폭주 케이스는 16분 이상이므로 이 값으로 걸러집니다. |
 | `known_problem_srs` | (빈 목록) | 렌더링 폭주가 확인된 SRS의 `프로젝트/ID`. 등록하면 이분 탐색을 생략합니다(무효화 조건은 Engineering Highlight 참고). |
 
-`.env`에 넣는 값은 토큰뿐입니다. 토큰을 `config.yaml`이나 소스에 적지 마세요.
+배포 관련 설정(`output:` 블록):
+
+| 키 | 기본값 | 설명 |
+|---|---|---|
+| `knowledge_folder` | (필수) | 최종 PDF를 반영할 폴더 |
+| `org_folder` | (빈 값) | 교체된 직전 세대 보관 폴더. 비우면 `<knowledge_folder와 같은 위치>/ORG` |
+
+메일 알림 설정(`mail:` 블록):
+
+| 키 | 기본값 | 설명 |
+|---|---|---|
+| `enabled` | false | 메일 알림 사용 여부 |
+| `to` | (빈 값) | 수신자. 쉼표로 여러 명 |
+| `host` / `port` / `user` / `from` | - | SMTP 접속 정보 |
+| `use_starttls` | true | STARTTLS 사용 |
+| `attach_report` | false | 변경 리포트 첨부(켜면 SRS 제목이 메일로 나감) |
+| `credentials_ini` | (빈 값) | 이미 쓰는 다른 자동화의 `config.ini`(`[email]` 섹션) 경로. 비밀값을 이 프로젝트로 복사하지 않고 재사용할 때 |
+
+자격증명 우선순위는 **환경변수 > `credentials_ini` > `config.yaml`** 입니다. 비밀값은 `config.yaml`에 적지 말고 `.env`에 두세요.
+
+```dotenv
+POLARION_TOKEN=
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASSWORD=
+MAIL_FROM=
+MAIL_TO=
+```
 
 ## Usage
 
@@ -231,6 +315,12 @@ python main.py --dry-run       # 지식파일 폴더 반영(archive/copy) 단계
 python main.py --recheck-known-problems
                               # 이미 렌더링 문제로 등록된 SRS도 정상 렌더링이
                               # 가능해졌는지 캐시를 무시하고 재확인
+
+python main.py --catch-up     # 이번 주에 이미 수행한 기록이 있으면 아무것도 하지 않고
+                              # 종료. PC 시작 시 트리거가 쓰는 모드
+
+python main.py --since 2026-07-25
+                              # 지정한 기준일부터 지금까지의 변경만 리포트 (PDF/배포/메일 없음)
 ```
 
 ### 운영 기준: PDF만 사용합니다
@@ -243,11 +333,12 @@ python main.py --recheck-known-problems
 |---|---|
 | `output/<YYYY-MM-DD>/pdf/` | 생성된 사양서 PDF 6개 |
 | `output/<YYYY-MM-DD>/html/` | PDF 변환 전 중간 HTML (재현·디버깅용) |
-| `output/<YYYY-MM-DD>/reports/` | 변경 리포트 (`.md` / `.html`) |
+| `output/<YYYY-MM-DD>/reports/` | 변경 리포트 (`.md` / `.html`), `--since` 사용 시 기간 리포트도 같은 폴더에 생성 |
 | `snapshots/<YYYY-MM-DD>/<project>/` | SRS 1건당 JSON 스냅샷 (Diff 기준 데이터) |
 | `snapshots/render_problem_state.json` | 렌더링 문제 SRS 캐시 상태 |
-| `archive/<YYMMDD>/` | 교체된 **이전 버전** 사양서 백업 |
+| `<지식파일 폴더와 같은 위치>/ORG/<YYMMDD>/` | 교체된 **직전 세대** 사양서. 다음 실행이 검증을 통과하면 자동 삭제 |
 | `logs/automation_<YYYYMMDD>.log` | 실행 로그 |
+| `logs/last_run.json` | 주간 실행 기록(부팅 시 만회 판단용) |
 
 지식파일 폴더 반영은 **검증을 모두 통과했을 때만** 수행됩니다. 하나라도 실패하면 기존 사양서를 교체하지 않고 종료 코드 1로 끝냅니다.
 

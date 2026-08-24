@@ -55,6 +55,7 @@ class Config:
     filename_date_format: str
     min_expected_srs_ratio: float
     require_all_pdfs: bool
+    org_folder: Path | None = None
     known_problem_srs: list[str] = field(default_factory=list)
     pdf_timeout_seconds: int = 300
     raw: dict[str, Any] = field(default_factory=dict)
@@ -106,6 +107,8 @@ def load_config(config_path: str | Path | None = None, env_path: str | Path | No
     out = raw.get("output", {})
     knowledge_folder_raw = out.get("knowledge_folder") or ""
     knowledge_folder = Path(knowledge_folder_raw) if knowledge_folder_raw else None
+    org_folder_raw = out.get("org_folder") or ""
+    org_folder = Path(org_folder_raw) if org_folder_raw else None
 
     validation = raw.get("validation", {})
 
@@ -130,6 +133,7 @@ def load_config(config_path: str | Path | None = None, env_path: str | Path | No
         snapshots_dir=_resolve_dir("snapshots_dir"),
         logs_dir=_resolve_dir("logs_dir"),
         knowledge_folder=knowledge_folder,
+        org_folder=org_folder,
         filename_prefix=out.get("filename_prefix", "(사양서) "),
         filename_date_format=out.get("filename_date_format", "%y%m%d"),
         min_expected_srs_ratio=float(validation.get("min_expected_srs_ratio", 0.95)),

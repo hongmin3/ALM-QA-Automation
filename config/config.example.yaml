@@ -59,8 +59,31 @@ output:
   logs_dir: "logs"
   # 최종 PDF를 반영할 실제 지식파일 폴더 (절대경로). 비워두면 output/ 안에만 생성합니다.
   knowledge_folder: ""
+  # 교체된 직전 세대 사양서를 보관할 폴더. 비워두면 지식파일 폴더와 같은 위치의 ORG/를 쓴다.
+  # 보관본은 다음 실행이 검증을 통과하면 자동 삭제된다(이미 지워져 있으면 아무것도 하지 않음).
+  org_folder: ""
   filename_prefix: "(사양서) "
   filename_date_format: "%y%m%d"
+
+mail:
+  # 실행 결과 알림 메일. 성공/실패와 무관하게 매 실행 후 발송한다.
+  # 메일 발송 실패는 경고로만 남기고 자동화 종료 코드에 영향을 주지 않는다.
+  enabled: false
+  to: ""                  # 쉼표로 여러 명 지정 가능
+  host: ""                # 예: smtp.gmail.com
+  port: 587
+  user: ""
+  from: ""
+  use_starttls: true
+  timeout_seconds: 30
+
+  # 변경 리포트 첨부 여부. 켜면 SRS 제목이 메일로 나가므로 기본은 끔.
+  attach_report: false
+
+  # 비밀값은 이 파일에 적지 말고 .env에 두세요.
+  #   SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASSWORD / MAIL_FROM / MAIL_TO
+  # 이미 다른 자동화의 config.ini([email] 섹션)를 쓰고 있다면 그 경로를 지정해 재사용할 수 있습니다.
+  credentials_ini: ""
 
 render:
   # PDF 렌더링 1회 시도의 시간제한(초).
