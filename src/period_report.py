@@ -10,17 +10,23 @@
   이 서버에서 200으로 정상 동작하는 것을 확인했다. 스냅샷 보관 여부와 무관하게
   **임의 과거 날짜**에 대해 정확한 목록을 얻을 수 있다.
 - **현재 내용**: 오늘자 스냅샷.
-- **기준 시점 내용**: 그 시점 이하의 스냅샷이 있으면 그것을 쓴다.
-  **없으면 '이전 내용'을 만들어낼 수 없다** - 이 서버의 REST API는 work item
-  revision을 노출하지 않는다(`/workitems/{id}/revisions` → 404,
-  `?revision=N` → 404). 없는 이력을 추정해서 채우지 않고, 리포트에 그대로
-  "기준 시점 본문 없음"으로 표시한다.
+- **기준 시점 내용**: 보관된 스냅샷에서 가져온다.
+  **없으면 만들어낼 수 없다** - 이 서버의 REST API는 work item revision을 노출하지
+  않는다(`/workitems/{id}/revisions` → 404, `?revision=N` → 404). 없는 이력을
+  추정해서 채우지 않는다.
 
-그래서 리포트는 SRS를 두 부류로 나눠 보여준다.
+## 분류 기준 (중요)
 
-1. **이전 → 현재 비교 가능** (기준 스냅샷에 존재) - 본문 차이를 그대로 보여준다.
-2. **변경 사실만 확인** (기준 스냅샷보다 앞선 기간의 변경) - 언제 바뀌었는지와
-   현재 내용을 보여주고, 그 시점 본문은 당시 배포된 사양서 PDF를 참조하도록 안내한다.
+기준 스냅샷에 레코드가 있다고 해서 Before/After를 보여줄 수 있는 것은 아니다.
+스냅샷 보관 시작일보다 **앞선** 기간에 수정된 SRS는 스냅샷에 이미 '수정 후' 내용이
+들어 있어, 비교하면 `unchanged`로 나온다. 이런 건을 '비교 가능'으로 세면 요약이
+실제보다 부풀려져, 읽는 사람이 "93건 전부 뭐가 바뀌었는지 볼 수 있다"고 오해한다.
+
+그래서 **실제로 Before/After 행이 나오는 것만** 비교 가능으로 분류한다.
+
+1. **Before → After 비교** - 기준 스냅샷 이후 변경분. 무엇이 어떻게 바뀌었는지 보여준다.
+2. **변경 시점만 확인** - 스냅샷 보관 이전에 수정된 건. 언제 바뀌었는지와 현재
+   내용을 주고, 원래 본문은 당시 배포된 사양서 PDF를 참조하도록 안내한다.
 """
 from __future__ import annotations
 
@@ -116,16 +122,24 @@ def build_period_report(
         total_srs=len(current_by_uid),
     )
 
-    # 기준 스냅샷이 있는 SRS만 실제 본문 비교가 가능하다.
-    comparable_uids = {u for u in changed if u in baseline_by_uid and u in current_by_uid}
-    if comparable_uids:
+    # 기준 스냅샷에 레코드가 있어야 비교를 시도할 수 있다.
+    in_baseline = {u for u in changed if u in baseline_by_uid and u in current_by_uid}
+    if in_baseline:
         diffs = diff_snapshots(
-            {u: baseline_by_uid[u] for u in comparable_uids},
-            {u: current_by_uid[u] for u in comparable_uids},
+            {u: baseline_by_uid[u] for u in in_baseline},
+            {u: current_by_uid[u] for u in in_baseline},
         )
         diff_by_uid = {d.uid: d for d in diffs}
     else:
         diff_by_uid = {}
+
+    # 레코드가 있다고 해서 Before/After를 보여줄 수 있는 것은 아니다. 기준 스냅샷보다
+    # 앞선 기간에 수정된 SRS는 스냅샷에 이미 '수정 후' 내용이 들어 있어, 비교하면
+    # 'unchanged'로 나온다. 그런 건을 '비교 가능'으로 세면 요약이 실제보다 부풀려진다.
+    # 그래서 **실제로 Before/After 행이 나오는 것만** 비교 가능으로 분류한다.
+    comparable_uids = {
+        uid for uid, d in diff_by_uid.items() if d.change_type != "unchanged" and _before_after_rows(d)
+    }
 
     for uid, meta in sorted(changed.items(), key=lambda kv: (kv[1].get("updated") or "", kv[0])):
         report.changes.append(
@@ -155,8 +169,8 @@ def render_markdown(report: PeriodReport) -> str:
         f"- 기준 시점: **{report.since}**",
         f"- 비교 시점: **{report.until}**",
         f"- 기간 내 변경된 SRS: **{len(report.changes)}건** (Polarion `updated` 기준)",
-        f"- 본문 비교 가능: {len(report.comparable)}건",
-        f"- 변경 사실만 확인: {len(report.listed_only)}건",
+        f"- Before/After 확인 가능: {len(report.comparable)}건",
+        f"- 변경 시점만 확인: {len(report.listed_only)}건",
         f"- 기준 스냅샷: {report.baseline_snapshot or '없음'}",
         "",
     ]
@@ -166,16 +180,18 @@ def render_markdown(report: PeriodReport) -> str:
 
     if report.listed_only:
         L += [
-            "> **참고.** 기준 시점 본문이 없는 SRS가 있습니다. 이 Polarion 서버의 REST API는",
-            "> work item 이력(revision)을 제공하지 않고, 구조화된 스냅샷은"
-            f" {report.baseline_snapshot or '(없음)'}부터 보관되어 있습니다.",
-            "> 그 이전 시점의 원래 본문은 당시 배포된 사양서 PDF를 참조하세요.",
-            "> 아래 '변경 사실만 확인' 목록은 **언제 바뀌었는지와 현재 내용**을 보여줍니다.",
+            "> **왜 일부는 Before/After가 없나.** 이 Polarion 서버의 REST API는 work item 이력(revision)을",
+            "> 제공하지 않습니다(`/workitems/{id}/revisions` → 404). 따라서 '그 시점의 원래 본문'은",
+            f"> 이 자동화가 스냅샷을 보관하기 시작한 **{report.baseline_snapshot or '(없음)'}** 이후 변경분만 복원할 수 있습니다.",
+            f"> {report.baseline_snapshot or '(기준일)'} 이전에 수정된 SRS는 스냅샷에 이미 '수정 후' 내용이 들어 있어",
+            "> 원래 본문을 만들어낼 수 없습니다. 이런 건은 **변경 시점과 현재 내용**만 제공하며,",
+            "> 원래 본문은 당시 배포된 사양서 PDF(`ORG/` 또는 `archive/`)를 참조하세요.",
+            "> 없는 이력을 추정해서 채우지 않습니다.",
             "",
         ]
 
     if report.comparable:
-        L += ["## 이전 → 현재 비교", ""]
+        L += ["## Before → After 비교", ""]
         for c in report.comparable:
             d = c.diff
             url = workitem_url(report.alm_host, c.project_id, c.id)
@@ -201,7 +217,7 @@ def render_markdown(report: PeriodReport) -> str:
             L.append("")
 
     if report.listed_only:
-        L += ["## 변경 사실만 확인 (기준 시점 본문 없음)", "", "| SRS | 제목 | 최종 수정 | ALM |", "|---|---|---|---|"]
+        L += ["## 변경 시점만 확인 (원래 본문 복원 불가)", "", "| SRS | 제목 | 최종 수정 | ALM |", "|---|---|---|---|"]
         for c in report.listed_only:
             url = workitem_url(report.alm_host, c.project_id, c.id)
             L.append(f"| {c.id} | {c.title} | {(c.updated or '-')[:19]} | [상세 보기]({url}) |")
@@ -256,21 +272,23 @@ def render_html(report: PeriodReport) -> str:
         "<div class='summary'>",
         f"<b>기준 시점</b> {e(report.since)} &nbsp;→&nbsp; <b>비교 시점</b> {e(report.until)}<br/>",
         f"기간 내 변경된 SRS <b>{len(report.changes)}건</b> (Polarion <code>updated</code> 기준)<br/>",
-        f"본문 비교 가능 {len(report.comparable)}건 · 변경 사실만 확인 {len(report.listed_only)}건<br/>",
+        f"Before/After 확인 가능 <b>{len(report.comparable)}건</b> · 변경 시점만 확인 {len(report.listed_only)}건<br/>",
         f"기준 스냅샷: {e(report.baseline_snapshot or '없음')}",
         "</div>",
     ]
 
     if report.listed_only:
         parts.append(
-            "<div class='note'><b>참고.</b> 기준 시점 본문이 없는 SRS가 있습니다. 이 Polarion 서버의 "
-            "REST API는 work item 이력(revision)을 제공하지 않고, 구조화된 스냅샷은 "
-            f"{e(report.baseline_snapshot or '(없음)')}부터 보관되어 있습니다. 그 이전 시점의 원래 본문은 "
-            "당시 배포된 사양서 PDF를 참조하세요.</div>"
+            "<div class='note'><b>왜 일부는 Before/After가 없나.</b> 이 Polarion 서버의 REST API는 "
+            "work item 이력(revision)을 제공하지 않습니다. 따라서 '그 시점의 원래 본문'은 이 자동화가 "
+            f"스냅샷을 보관하기 시작한 <b>{e(report.baseline_snapshot or '(없음)')}</b> 이후 변경분만 복원할 수 "
+            "있습니다. 그 이전에 수정된 SRS는 스냅샷에 이미 '수정 후' 내용이 들어 있어 원래 본문을 만들 수 "
+            "없으므로, 변경 시점과 현재 내용만 제공합니다. 원래 본문은 당시 배포된 사양서 PDF"
+            "(<code>ORG/</code> 또는 <code>archive/</code>)를 참조하세요.</div>"
         )
 
     if report.comparable:
-        parts.append("<h2>이전 → 현재 비교</h2>")
+        parts.append("<h2>Before → After 비교</h2>")
         for c in report.comparable:
             d = c.diff
             url = workitem_url(report.alm_host, c.project_id, c.id)
@@ -290,7 +308,7 @@ def render_html(report: PeriodReport) -> str:
             parts.append("</div>")
 
     if report.listed_only:
-        parts.append("<h2>변경 사실만 확인 (기준 시점 본문 없음)</h2>")
+        parts.append("<h2>변경 시점만 확인 (원래 본문 복원 불가)</h2>")
         parts.append("<table><tr><th>SRS</th><th>제목</th><th>최종 수정</th><th>ALM</th></tr>")
         for c in report.listed_only:
             url = workitem_url(report.alm_host, c.project_id, c.id)

@@ -11,8 +11,53 @@ Polarion ALM에 흩어져 있는 수백 건의 SRS(Software Requirements Specifi
 | 무엇을 | Polarion ALM의 SRS(수백 건)를 매주 수집해 QA용 PDF 사양서(5~6개 분할)와 SRS 단위 변경 리포트를 자동 생성 |
 | 왜 | 수동 Export의 언어 혼재, 대용량 단일 문서, 변경점 추적 어려움을 해결 |
 | 어떻게 | Polarion REST API → 구조화 Snapshot(JSON) → HTML 렌더 → PDF → 이전 Snapshot과 구조적 Diff |
-| 실행 | Windows Task Scheduler, 매주 월요일 09:00, 실패 시 기존 산출물 보호 |
+| 실행 | Windows Task Scheduler, 매주 월요일 07:00 + PC 시작 시 만회 실행, 실패 시 기존 산출물 보호 |
 | 규모 | 실제 운영 환경 기준 SRS 500건 이상, 이미지 수백 장, PDF 6개 |
+
+## 빠른 실행 안내 (운영자용)
+
+> 평소에는 **아무것도 하지 않아도 됩니다.** 매주 월요일 07:00에 자동 실행되고 결과가 메일로 옵니다.
+> 아래는 직접 돌려야 할 때만 보세요. 각 항목의 자세한 설명은 링크된 절에 있습니다.
+
+**모든 명령은 프로젝트 폴더에서 실행합니다.**
+
+```powershell
+cd "$env:USERPROFILE\Documents\자동화\ALM 사양서 최신화 크롤링"
+```
+
+| 하고 싶은 일 | 명령 | 걸리는 시간 |
+|---|---|---|
+| 지금 바로 최신 사양서를 만들고 지식파일 폴더에 반영 | `python main.py` | 약 5분 |
+| 특정 시점 이후 뭐가 바뀌었는지만 확인 (예: 2차 검증 종료일) | `python main.py --since 2026-07-25` | 약 10초 |
+| 사양서는 그대로 두고 점검만 (지식파일 폴더 안 건드림) | `python main.py --dry-run` | 약 5분 |
+| Polarion에서 다시 긁어오기 (오늘 이미 받았어도) | `python main.py --force` | 약 5분 |
+| PDF만 다시 만들기 (Polarion 재조회 없음) | `python main.py --export-only` | 약 3분 |
+| 변경 리포트만 다시 만들기 | `python main.py --diff-only` | 약 10초 |
+| 스케줄러가 제대로 등록됐는지 확인 | `Get-ScheduledTaskInfo -TaskName VXvue_SRS_Spec_Automation` | 즉시 |
+| 스케줄러에서 지금 1회 실행 | `Start-ScheduledTask -TaskName VXvue_SRS_Spec_Automation` | 약 5분 |
+| 실행 시각 변경 (예: 06:30) | `.\scripts\install_task.ps1 -At "06:30"` | 즉시 |
+| 자동 실행 중지 | `.\scripts\uninstall_task.ps1` | 즉시 |
+
+### 자주 묻는 상황
+
+**Q. 결과 메일이 안 왔어요.**
+메일 발송 실패는 자동화를 실패시키지 않으므로, 사양서는 정상 생성됐을 수 있습니다. `logs\automation_<날짜>.log`에서 `메일 발송 실패`를 찾아보세요. 설정은 [Notification](#notification) 참고.
+
+**Q. 월요일에 PC가 꺼져 있었어요.**
+그대로 두면 됩니다. PC를 켜고 5분 뒤 만회 실행이 자동으로 돕니다. 이미 그 주에 실행했다면 아무 일도 일어나지 않습니다. → [놓친 실행은 어떻게 만회되나](#놓친-실행은-어떻게-만회되나)
+
+**Q. 메일에 "실패"라고 왔어요.**
+**기존 사양서는 교체되지 않았으니 당장 급하지 않습니다.** 메일의 "실패한 검증 항목"을 보고 [Troubleshooting](#troubleshooting--실패-시-점검-순서) 순서대로 확인하세요. 대부분 `python main.py` 재실행으로 해결됩니다.
+
+**Q. 이전 버전 사양서를 다시 보고 싶어요.**
+지식파일 폴더와 같은 위치의 `ORG\<날짜>\`에 직전 세대가 있습니다. **다음 실행이 성공하면 자동 삭제**되므로, 오래 보관하려면 다른 곳으로 복사해 두세요.
+
+**Q. 3차 검증 대상 SRS를 뽑고 싶어요.**
+`python main.py --since <2차 검증 종료일>`을 실행하면 `output\<오늘>\reports\SRS_Period_Report_*.html`이 생깁니다. 브라우저로 열면 변경된 SRS 목록과 ALM 바로가기 링크가 있습니다. → [기간 지정 리포트](#기간-지정-리포트---since)
+
+**Q. 사양서5가 이상해요 / 특정 SRS 서식이 깨져 보여요.**
+렌더링 폭주를 일으키는 SRS는 서식만 단순화해서 넣습니다(내용·이미지는 보존). 어떤 SRS가 그랬는지는 메일의 "확인이 필요한 사항"과 변경 리포트에 나옵니다. → [Engineering Highlight](#engineering-highlight--원인을-못-찾은-버그를-자동-격리로-우회하기)
+
 
 ## Problem
 
@@ -310,7 +355,7 @@ python main.py --crawl-only    # Polarion 수집 + Snapshot 저장만
 python main.py --export-only   # 이미 저장된 오늘자 Snapshot으로 HTML/PDF만 재생성
 python main.py --diff-only     # 오늘자 vs 이전 Snapshot Diff/리포트만 재생성
 python main.py --force         # 오늘자 Snapshot이 있어도 다시 수집
-python main.py --dry-run       # 지식파일 폴더 반영(archive/copy) 단계 생략
+python main.py --dry-run       # 지식파일 폴더 반영(ORG 보관/복사) 단계 생략
 
 python main.py --recheck-known-problems
                               # 이미 렌더링 문제로 등록된 SRS도 정상 렌더링이
@@ -400,7 +445,7 @@ vxvue-srs-spec-automation/
 ├─ scripts/        # Windows Task Scheduler 등록/해제 스크립트
 ├─ tests/          # pytest 단위 테스트
 ├─ output/         # 실행별 산출물 (html/pdf/reports) - gitignore
-├─ archive/        # 교체 전 기존 사양서 백업 - gitignore
+├─ archive/        # (레거시) 과거 버전 백업 - gitignore. 현재 배포 경로는 지식파일 폴더 옆 ORG/
 ├─ snapshots/       # SRS 단위 JSON Snapshot + 렌더링 문제 상태 - gitignore
 ├─ logs/           # 실행 로그 - gitignore
 ├─ .env.example

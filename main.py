@@ -7,9 +7,12 @@
     python main.py --export-only   # 이미 저장된 오늘자 Snapshot으로 HTML/PDF만 재생성
     python main.py --diff-only     # 오늘자 vs 이전 Snapshot Diff + 리포트만 재생성
     python main.py --force         # 오늘자 Snapshot이 이미 있어도 다시 수집
-    python main.py --dry-run       # 지식파일 폴더 반영(archive/copy) 단계만 생략
+    python main.py --dry-run       # 지식파일 폴더 반영(ORG 보관/복사) 단계만 생략
     python main.py --recheck-known-problems
                                    # 이미 문제로 등록된 SRS도 정상 렌더링 가능해졌는지 재확인
+    python main.py --catch-up      # 이번 주에 이미 수행했으면 아무것도 하지 않고 종료
+    python main.py --since 2026-07-25
+                                   # 기준일부터 지금까지의 변경만 리포트 (PDF/배포/메일 없음)
 """
 from __future__ import annotations
 
@@ -51,7 +54,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--export-only", action="store_true", help="오늘자 Snapshot으로 HTML/PDF만 재생성")
     p.add_argument("--diff-only", action="store_true", help="오늘자 vs 이전 Snapshot Diff/리포트만 재생성")
     p.add_argument("--force", action="store_true", help="오늘자 Snapshot이 있어도 다시 수집")
-    p.add_argument("--dry-run", action="store_true", help="지식파일 폴더 반영 단계를 생략(archive/copy 안 함)")
+    p.add_argument("--dry-run", action="store_true", help="지식파일 폴더 반영 단계를 생략(ORG 보관/복사 안 함)")
     p.add_argument(
         "--recheck-known-problems",
         action="store_true",
