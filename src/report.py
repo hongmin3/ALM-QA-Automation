@@ -98,7 +98,7 @@ def render_markdown(
 
 
 _HTML_CSS = """
-body{font-family:'Segoe UI',sans-serif;font-size:13px;color:#111;max-width:1000px;margin:24px auto;}
+body{font-family:'Segoe UI',sans-serif;font-size:13px;color:#111;max-width:1000px;margin:24px auto;word-break:keep-all;overflow-wrap:break-word;}
 .summary{background:#f5f5f5;border:1px solid #ddd;padding:12px 16px;border-radius:6px;}
 .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;color:#fff;margin-right:4px;}
 .badge.new{background:#2e7d32;} .badge.deleted{background:#c62828;} .badge.changed{background:#ef6c00;} .badge.unchanged{background:#9e9e9e;}

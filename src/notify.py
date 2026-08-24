@@ -153,7 +153,7 @@ def build_body(summary: dict) -> str:
     )
 
     diff = summary.get("diff", {})
-    return f"""<div style="font-family:'Malgun Gothic',AppleGothic,sans-serif;font-size:13px;color:#24292f;line-height:1.6;">
+    return f"""<div style="font-family:'Malgun Gothic',AppleGothic,sans-serif;font-size:13px;color:#24292f;line-height:1.6;word-break:keep-all;overflow-wrap:break-word;">
   <h2 style="margin:0 0 4px;font-size:18px;">VXvue SRS 사양서 자동 최신화</h2>
   <p style="margin:0 0 16px;">
     <span style="display:inline-block;padding:2px 10px;border-radius:10px;background:{color};color:#fff;font-weight:bold;">{status}</span>

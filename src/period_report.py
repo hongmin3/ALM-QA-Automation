@@ -215,7 +215,7 @@ def render_markdown(report: PeriodReport) -> str:
 # ---------------------------------------------------------------- HTML
 
 _CSS = """
-body{font-family:'Segoe UI','Malgun Gothic',sans-serif;font-size:13px;color:#111;max-width:1000px;margin:24px auto;padding:0 16px;}
+body{font-family:'Segoe UI','Malgun Gothic',sans-serif;font-size:13px;color:#111;max-width:1000px;margin:24px auto;padding:0 16px;word-break:keep-all;overflow-wrap:break-word;}
 .summary{background:#f6f8fa;border:1px solid #d0d7de;padding:12px 16px;border-radius:6px;}
 .note{background:#fff8c5;border:1px solid #d4a72c;padding:10px 14px;border-radius:6px;margin:16px 0;}
 .srs{border:1px solid #d0d7de;border-radius:6px;padding:10px 14px;margin:12px 0;}
