@@ -32,6 +32,8 @@ from pathlib import Path
 from typing import Any
 
 from .diff import SrsDiff, diff_snapshots
+from .links import workitem_url
+from .report import MAX_ROWS_PER_SRS, _before_after_rows, _md_cell
 
 logger = logging.getLogger("srs_automation")
 
@@ -52,6 +54,7 @@ class PeriodReport:
     since: str
     until: str
     baseline_snapshot: str | None
+    alm_host: str = ""
     changes: list[PeriodChange] = field(default_factory=list)
     total_srs: int = 0
     query_counts: dict[str, int] = field(default_factory=dict)
@@ -103,9 +106,14 @@ def build_period_report(
     current_by_uid: dict[str, dict],
     baseline_by_uid: dict[str, dict],
     baseline_snapshot: str | None,
+    alm_host: str = "",
 ) -> PeriodReport:
     report = PeriodReport(
-        since=since, until=until, baseline_snapshot=baseline_snapshot, total_srs=len(current_by_uid)
+        since=since,
+        until=until,
+        baseline_snapshot=baseline_snapshot,
+        alm_host=alm_host,
+        total_srs=len(current_by_uid),
     )
 
     # 기준 스냅샷이 있는 SRS만 실제 본문 비교가 가능하다.
@@ -170,28 +178,33 @@ def render_markdown(report: PeriodReport) -> str:
         L += ["## 이전 → 현재 비교", ""]
         for c in report.comparable:
             d = c.diff
-            L.append(f"### {c.id} - {c.title}")
+            url = workitem_url(report.alm_host, c.project_id, c.id)
+            L.append(f"### [{c.id} - {c.title}]({url})")
             L.append("")
-            L.append(f"- 최종 수정: {c.updated or '-'}")
+            L.append(f"- 최종 수정: {c.updated or '-'} · [ALM에서 상세 보기]({url})")
             if d and d.field_changes:
                 L.append(f"- 변경 항목: {', '.join(d.field_changes)}")
-            if d and d.status_before != d.status_after:
-                L.append(f"- 상태: `{d.status_before}` → `{d.status_after}`")
-            if d and (d.title_before or "") != (d.title_after or "") and d.title_before:
-                L.append(f"- 제목: `{d.title_before}` → `{d.title_after}`")
-            if d and d.text_diff_lines:
+            rows = _before_after_rows(d) if d else []
+            if rows:
                 L.append("")
-                L.append("```diff")
-                L.extend(d.text_diff_lines[:200])
-                L.append("```")
+                L.append("| 항목 | Before | After |")
+                L.append("|---|---|---|")
+                for label, before, after in rows:
+                    L.append(f"| {_md_cell(label)} | {_md_cell(before)} | {_md_cell(after)} |")
+                if d and len(d.sentence_changes) > MAX_ROWS_PER_SRS:
+                    L.append("")
+                    L.append(
+                        f"_(본문 변경 {len(d.sentence_changes)}건 중 {MAX_ROWS_PER_SRS}건만 표시 - 전체는 ALM에서 확인)_"
+                    )
             elif d and d.change_type == "unchanged":
                 L.append("- 기준 스냅샷 이후로는 본문 변경 없음 (기준 시점 이전에 수정됨)")
             L.append("")
 
     if report.listed_only:
-        L += ["## 변경 사실만 확인 (기준 시점 본문 없음)", "", "| SRS | 제목 | 최종 수정 |", "|---|---|---|"]
+        L += ["## 변경 사실만 확인 (기준 시점 본문 없음)", "", "| SRS | 제목 | 최종 수정 | ALM |", "|---|---|---|---|"]
         for c in report.listed_only:
-            L.append(f"| {c.id} | {c.title} | {(c.updated or '-')[:19]} |")
+            url = workitem_url(report.alm_host, c.project_id, c.id)
+            L.append(f"| {c.id} | {c.title} | {(c.updated or '-')[:19]} | [상세 보기]({url}) |")
         L.append("")
 
     if not report.changes:
@@ -208,25 +221,29 @@ body{font-family:'Segoe UI','Malgun Gothic',sans-serif;font-size:13px;color:#111
 .srs{border:1px solid #d0d7de;border-radius:6px;padding:10px 14px;margin:12px 0;}
 .srs h3{margin:0 0 6px;font-size:14px;}
 .meta{color:#57606a;font-size:12px;}
-.diff{background:#1e1e1e;color:#ddd;padding:10px;border-radius:4px;overflow-x:auto;font-family:Consolas,monospace;font-size:12px;white-space:pre;}
-.diff .add{color:#4caf50;} .diff .del{color:#ef5350;}
 table{border-collapse:collapse;width:100%;}
-th,td{border:1px solid #d0d7de;padding:5px 10px;text-align:left;}
+th,td{border:1px solid #d0d7de;padding:5px 10px;text-align:left;vertical-align:top;}
 th{background:#f6f8fa;}
+a.alm-link{color:#0969da;text-decoration:none;} a.alm-link:hover{text-decoration:underline;}
 """
 
 
-def _diff_html(lines: list[str]) -> str:
-    out = []
-    for line in lines[:200]:
-        esc = html_lib.escape(line)
-        if line.startswith("+") and not line.startswith("+++"):
-            out.append(f'<span class="add">{esc}</span>')
-        elif line.startswith("-") and not line.startswith("---"):
-            out.append(f'<span class="del">{esc}</span>')
-        else:
-            out.append(esc)
-    return "\n".join(out)
+def _changes_table_html(d: SrsDiff | None) -> str:
+    rows = _before_after_rows(d) if d else []
+    if not rows:
+        return ""
+    body = "".join(
+        f"<tr><td style='white-space:nowrap;color:#555;'>{html_lib.escape(label)}</td>"
+        f"<td>{html_lib.escape(before)}</td><td>{html_lib.escape(after)}</td></tr>"
+        for label, before, after in rows
+    )
+    note = ""
+    if d and len(d.sentence_changes) > MAX_ROWS_PER_SRS:
+        note = (
+            f"<p style='color:#888;font-size:12px;'>본문 변경 {len(d.sentence_changes)}건 중 "
+            f"{MAX_ROWS_PER_SRS}건만 표시 - 전체는 ALM에서 확인</p>"
+        )
+    return f"<table><tr><th>항목</th><th>Before</th><th>After</th></tr>{body}</table>{note}"
 
 
 def render_html(report: PeriodReport) -> str:
@@ -256,25 +273,31 @@ def render_html(report: PeriodReport) -> str:
         parts.append("<h2>이전 → 현재 비교</h2>")
         for c in report.comparable:
             d = c.diff
+            url = workitem_url(report.alm_host, c.project_id, c.id)
             parts.append("<div class='srs'>")
-            parts.append(f"<h3>{e(c.id)} - {e(c.title)}</h3>")
+            parts.append(
+                f"<h3><a class='alm-link' href='{e(url)}' target='_blank' rel='noopener'>{e(c.id)} - {e(c.title)}</a></h3>"
+            )
             meta = [f"최종 수정 {e(str(c.updated or '-'))[:19]}"]
             if d and d.field_changes:
                 meta.append("변경 항목: " + e(", ".join(d.field_changes)))
-            if d and d.status_before != d.status_after:
-                meta.append(f"상태 {e(str(d.status_before))} → {e(str(d.status_after))}")
             parts.append(f"<div class='meta'>{' · '.join(meta)}</div>")
-            if d and d.text_diff_lines:
-                parts.append(f"<div class='diff'>{_diff_html(d.text_diff_lines)}</div>")
+            table_html = _changes_table_html(d)
+            if table_html:
+                parts.append(table_html)
             elif d and d.change_type == "unchanged":
                 parts.append("<p class='meta'>기준 스냅샷 이후로는 본문 변경 없음 (기준 시점 이전에 수정됨)</p>")
             parts.append("</div>")
 
     if report.listed_only:
         parts.append("<h2>변경 사실만 확인 (기준 시점 본문 없음)</h2>")
-        parts.append("<table><tr><th>SRS</th><th>제목</th><th>최종 수정</th></tr>")
+        parts.append("<table><tr><th>SRS</th><th>제목</th><th>최종 수정</th><th>ALM</th></tr>")
         for c in report.listed_only:
-            parts.append(f"<tr><td>{e(c.id)}</td><td>{e(c.title)}</td><td>{e(str(c.updated or '-'))[:19]}</td></tr>")
+            url = workitem_url(report.alm_host, c.project_id, c.id)
+            parts.append(
+                f"<tr><td>{e(c.id)}</td><td>{e(c.title)}</td><td>{e(str(c.updated or '-'))[:19]}</td>"
+                f"<td><a class='alm-link' href='{e(url)}' target='_blank' rel='noopener'>상세 보기</a></td></tr>"
+            )
         parts.append("</table>")
 
     if not report.changes:

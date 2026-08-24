@@ -6,6 +6,9 @@ from pathlib import Path
 from typing import Any
 
 from .diff import SrsDiff
+from .links import workitem_url
+
+MAX_ROWS_PER_SRS = 60
 
 
 def _summary_counts(diffs: list[SrsDiff]) -> dict[str, int]:
@@ -15,6 +18,28 @@ def _summary_counts(diffs: list[SrsDiff]) -> dict[str, int]:
     return counts
 
 
+def _before_after_rows(d: SrsDiff) -> list[tuple[str, str, str]]:
+    """Status/제목/본문 변경을 하나의 (항목, Before, After) 표로 합친다.
+
+    자세한 내용은 실제 SRS를 ALM에서 열어 확인하는 것을 전제로, 표는 "무엇이
+    바뀌었는지"를 한눈에 보여주는 용도다.
+    """
+    rows: list[tuple[str, str, str]] = []
+    if d.status_before != d.status_after and (d.status_before or d.status_after):
+        rows.append(("상태", d.status_before or "-", d.status_after or "-"))
+    if (d.title_before or "") != (d.title_after or "") and d.title_before:
+        rows.append(("제목", d.title_before, d.title_after or "-"))
+    for i, c in enumerate(d.sentence_changes[:MAX_ROWS_PER_SRS], start=1):
+        before = c["before"] or "(신규 추가)"
+        after = c["after"] or "(삭제됨)"
+        rows.append((f"본문 {i}", before, after))
+    return rows
+
+
+def _md_cell(text: str) -> str:
+    return text.replace("|", "\\|").replace("\n", " ").strip()
+
+
 def render_markdown(
     diffs: list[SrsDiff],
     *,
@@ -22,6 +47,7 @@ def render_markdown(
     previous_date: str | None,
     current_date: str,
     pdf_sanity: list[dict[str, Any]],
+    alm_host: str,
 ) -> str:
     counts = _summary_counts(diffs)
     lines = [
@@ -48,22 +74,25 @@ def render_markdown(
     for d in diffs:
         if d.change_type == "unchanged":
             continue
-        lines.append(f"### {d.id} - {d.title or d.title_after or ''}")
+        url = workitem_url(alm_host, d.project_id, d.id)
+        lines.append(f"### [{d.id} - {d.title or d.title_after or ''}]({url})")
         lines.append("")
-        lines.append(f"Change Type: **{d.change_type}**")
+        lines.append(f"Change Type: **{d.change_type}** · [ALM에서 상세 보기]({url})")
         if d.field_changes:
             lines.append("")
-            lines.append("Detected changes:")
-            for c in d.field_changes:
-                lines.append(f"- {c}")
-        if d.status_before != d.status_after:
+            lines.append("Detected changes: " + ", ".join(d.field_changes))
+        rows = _before_after_rows(d)
+        if rows:
             lines.append("")
-            lines.append(f"Status: `{d.status_before}` -> `{d.status_after}`")
-        if d.text_diff_lines:
-            lines.append("")
-            lines.append("```diff")
-            lines.extend(d.text_diff_lines[:200])
-            lines.append("```")
+            lines.append("| 항목 | Before | After |")
+            lines.append("|---|---|---|")
+            for label, before, after in rows:
+                lines.append(f"| {_md_cell(label)} | {_md_cell(before)} | {_md_cell(after)} |")
+            if len(d.sentence_changes) > MAX_ROWS_PER_SRS:
+                lines.append("")
+                lines.append(
+                    f"_(본문 변경 {len(d.sentence_changes)}건 중 {MAX_ROWS_PER_SRS}건만 표시 - 전체는 ALM에서 확인)_"
+                )
         lines.append("")
     return "\n".join(lines)
 
@@ -74,23 +103,34 @@ body{font-family:'Segoe UI',sans-serif;font-size:13px;color:#111;max-width:1000p
 .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;color:#fff;margin-right:4px;}
 .badge.new{background:#2e7d32;} .badge.deleted{background:#c62828;} .badge.changed{background:#ef6c00;} .badge.unchanged{background:#9e9e9e;}
 .srs{border:1px solid #ddd;border-radius:6px;padding:10px 14px;margin:12px 0;}
-.diff{background:#1e1e1e;color:#ddd;padding:10px;border-radius:4px;overflow-x:auto;font-family:Consolas,monospace;font-size:12px;white-space:pre;}
-.diff .add{color:#4caf50;} .diff .del{color:#ef5350;}
+table.changes{border-collapse:collapse;width:100%;margin-top:8px;}
+table.changes td, table.changes th{border:1px solid #ddd;padding:5px 10px;text-align:left;vertical-align:top;}
+table.changes th{background:#f5f5f5;}
+table.changes td.label{white-space:nowrap;color:#555;}
+a.alm-link{color:#0969da;text-decoration:none;} a.alm-link:hover{text-decoration:underline;}
 table.sanity{border-collapse:collapse;} table.sanity td, table.sanity th{border:1px solid #ccc;padding:4px 10px;}
 """
 
 
-def _diff_html(lines: list[str]) -> str:
-    out = []
-    for line in lines[:200]:
-        esc = html_lib.escape(line)
-        if line.startswith("+") and not line.startswith("+++"):
-            out.append(f'<span class="add">{esc}</span>')
-        elif line.startswith("-") and not line.startswith("---"):
-            out.append(f'<span class="del">{esc}</span>')
-        else:
-            out.append(esc)
-    return "\n".join(out)
+def _changes_table_html(d: SrsDiff) -> str:
+    rows = _before_after_rows(d)
+    if not rows:
+        return ""
+    body = "".join(
+        f"<tr><td class='label'>{html_lib.escape(label)}</td>"
+        f"<td>{html_lib.escape(before)}</td><td>{html_lib.escape(after)}</td></tr>"
+        for label, before, after in rows
+    )
+    note = ""
+    if len(d.sentence_changes) > MAX_ROWS_PER_SRS:
+        note = (
+            f"<p style='color:#888;font-size:12px;'>본문 변경 {len(d.sentence_changes)}건 중 "
+            f"{MAX_ROWS_PER_SRS}건만 표시 - 전체는 ALM에서 확인</p>"
+        )
+    return (
+        "<table class='changes'><tr><th>항목</th><th>Before</th><th>After</th></tr>"
+        f"{body}</table>{note}"
+    )
 
 
 def render_html(
@@ -100,18 +140,21 @@ def render_html(
     previous_date: str | None,
     current_date: str,
     pdf_sanity: list[dict[str, Any]],
+    alm_host: str,
 ) -> str:
     counts = _summary_counts(diffs)
     rows = []
     for d in diffs:
         if d.change_type == "unchanged":
             continue
+        url = workitem_url(alm_host, d.project_id, d.id)
         changes_html = ", ".join(html_lib.escape(c) for c in d.field_changes) or "-"
-        diff_block = f'<div class="diff">{_diff_html(d.text_diff_lines)}</div>' if d.text_diff_lines else ""
+        table_html = _changes_table_html(d)
         rows.append(
             f'<div class="srs"><h3><span class="badge {d.change_type}">{d.change_type}</span> '
-            f'{html_lib.escape(d.id)} - {html_lib.escape(d.title or d.title_after or "")}</h3>'
-            f"<p>Detected changes: {changes_html}</p>{diff_block}</div>"
+            f'<a class="alm-link" href="{html_lib.escape(url)}" target="_blank" rel="noopener">'
+            f'{html_lib.escape(d.id)} - {html_lib.escape(d.title or d.title_after or "")}</a></h3>'
+            f"<p>Detected changes: {changes_html}</p>{table_html}</div>"
         )
 
     sanity_rows = "".join(
@@ -149,19 +192,30 @@ def save_reports(
     previous_date: str | None,
     current_date: str,
     pdf_sanity: list[dict[str, Any]],
+    alm_host: str,
 ) -> tuple[Path, Path]:
     reports_dir.mkdir(parents=True, exist_ok=True)
     md_path = reports_dir / f"SRS_Change_Report_{date_str}.md"
     html_path = reports_dir / f"SRS_Change_Report_{date_str}.html"
     md_path.write_text(
         render_markdown(
-            diffs, execution_date=date_str, previous_date=previous_date, current_date=current_date, pdf_sanity=pdf_sanity
+            diffs,
+            execution_date=date_str,
+            previous_date=previous_date,
+            current_date=current_date,
+            pdf_sanity=pdf_sanity,
+            alm_host=alm_host,
         ),
         encoding="utf-8",
     )
     html_path.write_text(
         render_html(
-            diffs, execution_date=date_str, previous_date=previous_date, current_date=current_date, pdf_sanity=pdf_sanity
+            diffs,
+            execution_date=date_str,
+            previous_date=previous_date,
+            current_date=current_date,
+            pdf_sanity=pdf_sanity,
+            alm_host=alm_host,
         ),
         encoding="utf-8",
     )

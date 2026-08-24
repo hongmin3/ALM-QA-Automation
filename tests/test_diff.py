@@ -64,6 +64,37 @@ def test_description_text_change_produces_diff_lines():
     assert any("10 seconds" in line for line in diffs[0].text_diff_lines)
 
 
+def test_description_change_produces_sentence_before_after_pair():
+    """리포트 표(Before/After)의 재료가 되는 문장 단위 쌍. 안 바뀐 문장은 포함하지 않는다."""
+    prev = _rec(
+        content_html="<p>Detector shall reconnect automatically.</p><p>Battery status is shown.</p>"
+    )
+    curr = _rec(
+        content_html="<p>Detector shall reconnect automatically within 10 seconds.</p>"
+        "<p>Battery status is shown.</p>"
+    )
+    diffs = diff_snapshots({"VXvue/VP-1": prev}, {"VXvue/VP-1": curr})
+    changes = diffs[0].sentence_changes
+    assert len(changes) == 1
+    assert changes[0]["before"] == "Detector shall reconnect automatically."
+    assert changes[0]["after"] == "Detector shall reconnect automatically within 10 seconds."
+
+
+def test_sentence_change_groups_adjacent_replacement_into_one_row():
+    prev = _rec(content_html="<p>Sentence A.</p><p>Sentence B.</p>")
+    curr = _rec(content_html="<p>Sentence A.</p><p>Sentence C.</p><p>Sentence D.</p>")
+    diffs = diff_snapshots({"VXvue/VP-1": prev}, {"VXvue/VP-1": curr})
+    changes = diffs[0].sentence_changes
+    assert changes == [{"before": "Sentence B.", "after": "Sentence C. Sentence D."}]
+
+
+def test_sentence_change_pure_deletion_leaves_after_empty():
+    prev = _rec(content_html="<p>Sentence A.</p><p>Sentence B.</p>")
+    curr = _rec(content_html="<p>Sentence A.</p>")
+    diffs = diff_snapshots({"VXvue/VP-1": prev}, {"VXvue/VP-1": curr})
+    assert diffs[0].sentence_changes == [{"before": "Sentence B.", "after": ""}]
+
+
 def test_strikethrough_added_detected():
     prev = _rec(content_html="<p>keep this</p>")
     curr = _rec(content_html='<p><span style="text-decoration: line-through;">keep this</span></p>')

@@ -22,9 +22,41 @@ def _plain_text(html_str: str | None) -> str:
     soup = BeautifulSoup(html_str, "html.parser")
     for br in soup.find_all("br"):
         br.replace_with("\n")
-    for li in soup.find_all("li"):
-        li.append("\n")
+    for tag in soup.find_all(["li", "p", "div", "tr", "h1", "h2", "h3", "h4", "h5", "h6"]):
+        tag.append("\n")
     return soup.get_text()
+
+
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?。])\s+")
+
+
+def _split_sentences(text: str) -> list[str]:
+    """줄바꿈과 문장부호 기준으로 비교 단위를 나눈다. Before/After 리포트 테이블의 한 행이 된다."""
+    sentences: list[str] = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        for part in _SENTENCE_SPLIT_RE.split(line):
+            part = part.strip()
+            if part:
+                sentences.append(part)
+    return sentences
+
+
+def sentence_changes(before_text: str, after_text: str) -> list[dict[str, str]]:
+    """문장 단위 Before/After 쌍. 동일한 문장은 결과에 포함하지 않는다."""
+    import difflib
+
+    before = _split_sentences(before_text)
+    after = _split_sentences(after_text)
+    matcher = difflib.SequenceMatcher(None, before, after, autojunk=False)
+    changes: list[dict[str, str]] = []
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            continue
+        changes.append({"before": " ".join(before[i1:i2]), "after": " ".join(after[j1:j2])})
+    return changes
 
 
 def _count(pattern: re.Pattern, html_str: str | None) -> int:
@@ -44,6 +76,7 @@ class SrsDiff:
     title_before: str | None = None
     title_after: str | None = None
     text_diff_lines: list[str] = field(default_factory=list)
+    sentence_changes: list[dict[str, str]] = field(default_factory=list)
     strikethrough_before: int = 0
     strikethrough_after: int = 0
     underline_before: int = 0
@@ -114,6 +147,7 @@ def diff_snapshots(
         prev_text = _plain_text(prev.get("content_html"))
         curr_text = _plain_text(curr.get("content_html"))
         text_diff_lines: list[str] = []
+        sentence_diff: list[dict[str, str]] = []
         if prev_text != curr_text:
             changes.append("description")
             text_diff_lines = list(
@@ -125,6 +159,7 @@ def diff_snapshots(
                     tofile="after",
                 )
             )
+            sentence_diff = sentence_changes(prev_text, curr_text)
 
         strike_before = _count(_STRIKE_RE, prev.get("content_html"))
         strike_after = _count(_STRIKE_RE, curr.get("content_html"))
@@ -166,6 +201,7 @@ def diff_snapshots(
                 title_before=prev.get("title"),
                 title_after=curr.get("title"),
                 text_diff_lines=text_diff_lines,
+                sentence_changes=sentence_diff,
                 strikethrough_before=strike_before,
                 strikethrough_after=strike_after,
                 underline_before=underline_before,

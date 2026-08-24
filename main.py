@@ -226,6 +226,7 @@ def _run_since_report(config, args, logger, run_date: str) -> int:
         current_by_uid=current_by_uid,
         baseline_by_uid=baseline_by_uid,
         baseline_snapshot=baseline,
+        alm_host=config.host,
     )
     md_path, html_path = save_period_report(ensure_dir(config.base_dir / run_date / "reports"), report)
 
@@ -423,7 +424,13 @@ def main() -> int:
                 )
 
         md_path, html_path = save_reports(
-            reports_dir, run_date, diffs, previous_date=previous_date, current_date=run_date, pdf_sanity=pdf_sanity
+            reports_dir,
+            run_date,
+            diffs,
+            previous_date=previous_date,
+            current_date=run_date,
+            pdf_sanity=pdf_sanity,
+            alm_host=config.host,
         )
         logger.info("변경 리포트 생성: %s / %s", md_path, html_path)
 
