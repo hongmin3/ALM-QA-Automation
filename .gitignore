@@ -22,3 +22,5 @@ venv/
 # OS
 Thumbs.db
 .DS_Store
+.akela/
+akela/.cache/
