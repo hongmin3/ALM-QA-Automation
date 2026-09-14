@@ -11,6 +11,11 @@ polarion:
   page_size: 100
 
 search:
+  # query는 명령행 인자로 덮어쓸 수 있습니다. 조건이 매번 바뀐다면 아래 값은 그대로 두고
+  # 실행할 때 넘기는 쪽이 편합니다.
+  #   python polarion_query_backup.py -query "id:VP\-6955"
+  # 명령행 -query가 있으면 아래 query 값은 무시됩니다(설정 파일은 수정되지 않습니다).
+  #
   # 가장 안전한 방법:
   # Polarion 검색 화면에서 Query Pane > Convert to Text로 변환한 문자열을 그대로 붙여넣으세요.
   #

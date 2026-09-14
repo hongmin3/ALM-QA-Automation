@@ -1953,26 +1953,99 @@ def prepare_output_directory(output_directory: Path) -> None:
     resolved.mkdir(parents=True, exist_ok=True)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--config", default="config.yaml")
-    arguments = parser.parse_args()
+def build_argument_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="polarion_query_backup.py",
+        description=(
+            "Polarion 검색 Query 결과를 "
+            "PDF/HTML/Markdown으로 Export합니다."
+        ),
+        epilog=(
+            "예시:\n"
+            "  python polarion_query_backup.py "
+            "-query \"id:VP\\-6955\"\n"
+            "  python polarion_query_backup.py "
+            "-q \"id:VP\\-6955 OR id:VP\\-7001\"\n"
+            "  python polarion_query_backup.py"
+            "        # config.yaml의 search.query 사용"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
 
-    config = load_config(Path(arguments.config))
-    client = PolarionClient(config)
+    parser.add_argument(
+        "-q",
+        "-query",
+        "--query",
+        dest="query",
+        default=None,
+        metavar="QUERY",
+        help=(
+            "이번 실행에만 사용할 Polarion 검색 Query. "
+            "지정하면 설정 파일의 search.query 대신 이 값을 사용합니다."
+        ),
+    )
+
+    parser.add_argument(
+        "--config",
+        default="config.yaml",
+        metavar="PATH",
+        help="설정 파일 경로 (기본값: config.yaml)",
+    )
+
+    return parser
+
+
+def resolve_query(
+    cli_query: str | None,
+    search_config: dict[str, Any],
+    config_path: Path,
+) -> tuple[str, str]:
+    """명령행 인자를 우선하고, 없으면 설정 파일의 search.query를 사용한다."""
+    config_source = f"{config_path.name} > search.query"
+
+    if cli_query is not None:
+        return cli_query.strip(), "명령행 -query"
+
+    config_query = search_config.get("query")
+
+    if config_query is None:
+        return "", config_source
+
+    return str(config_query).strip(), config_source
+
+
+def main() -> None:
+    arguments = build_argument_parser().parse_args()
+
+    config_path = Path(arguments.config)
+
+    if not config_path.is_file():
+        raise RuntimeError(
+            f"설정 파일을 찾을 수 없습니다: {config_path.resolve()}"
+        )
+
+    config = load_config(config_path)
 
     search_config = config["search"]
     fields_config = config["fields"]
     output_config = config["output"]
 
-    query = str(search_config["query"]).strip()
+    query, query_source = resolve_query(
+        arguments.query,
+        search_config,
+        config_path,
+    )
 
     if not query:
         raise RuntimeError(
-            "config.yaml의 search.query가 비어 있습니다."
+            "검색 Query가 비어 있습니다. "
+            "명령행에서 -query \"id:VP\\-6955\" 처럼 직접 지정하거나, "
+            f"{config_path.name}의 search.query를 채우세요."
         )
 
-    print(f"Query: {query}")
+    print(f"Query: {query}    (출처: {query_source})")
+
+    client = PolarionClient(config)
 
     workitems = client.query_workitems(
         query=query,

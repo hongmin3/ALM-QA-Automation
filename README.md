@@ -50,7 +50,10 @@ ALM 안에서는 이슈를 잘 볼 수 있지만, 밖에서 활용하기는 어�
 ## 주요 기능
 
 - **검색 Query 기반 일괄 Export**: 개별 이슈 ID가 아니라 Polarion 검색 Query(Convert to
-  Text 결과)를 설정 파일에 넣으면, 조건에 맞는 Work Item 전체를 한 번에 처리합니다.
+  Text 결과)를 넣으면, 조건에 맞는 Work Item 전체를 한 번에 처리합니다.
+- **명령행에서 쿼리 바로 지정**: 매번 `config.yaml`을 열어 쿼리를 고치고 저장할 필요 없이
+  `-query "id:VP\-6955"` 처럼 실행할 때 바로 넘길 수 있습니다. 설정 파일은 그대로 두고
+  이번 실행에만 적용됩니다.
 - **발생원인·조치내역 우선 배치**: `occurrenceCause`/`actionDetails` 등 분석에 중요한
   필드를 문서 최상단에 배치합니다.
 - **연관 사양/이슈 자동 구분**: 연결된 Work Item을 다시 조회해 `type` 값 기준으로 사양(SRS)과
@@ -102,14 +105,60 @@ copy config.example.yaml config.yaml
 ```
 
 검색 조건은 Polarion Work Items 화면에서 만든 뒤, Query Pane의 `Convert to Text` 결과를
-`config.yaml > search.query`에 그대로 붙여넣으세요. 표시명과 내부 사용자 ID가 다를 수
-있으므로, 화면을 보고 직접 추측한 쿼리보다 이 방법이 안전합니다.
+그대로 쓰세요. 표시명과 내부 사용자 ID가 다를 수 있으므로, 화면을 보고 직접 추측한 쿼리보다
+이 방법이 안전합니다.
+
+이 쿼리는 두 곳 중 하나에 넣을 수 있습니다.
+
+| 방법 | 쓰는 곳 | 언제 |
+| --- | --- | --- |
+| 명령행 `-query` | 실행할 때 인자로 전달 | 매번 조건이 바뀌는 일반적인 경우 |
+| `config.yaml > search.query` | 설정 파일 | 항상 같은 조건으로 돌릴 때 (기본값 역할) |
+
+둘 다 있으면 **명령행 쪽이 이깁니다.** `sort`, `max_items` 같은 나머지 검색 옵션은 계속
+`config.yaml`에서 관리합니다.
 
 ## 실행
 
+### 쿼리를 바로 지정해서 실행 (권장)
+
 ```powershell
-python polarion_query_backup.py --config config.yaml
+python polarion_query_backup.py -query "id:VP\-6955"
 ```
+
+- `-query`, `-q`, `--query` 셋 다 같은 옵션입니다.
+- 쿼리는 **반드시 큰따옴표로 감싸세요.** Polarion 쿼리에는 `\`, `:`, 공백이 들어가고,
+  PowerShell은 큰따옴표 안의 `\`를 그대로 넘겨줍니다.
+- 실행 첫 줄에 어떤 쿼리를 어디서 읽었는지 찍히므로 바로 확인할 수 있습니다.
+
+```
+Query: id:VP\-6955    (출처: 명령행 -query)
+```
+
+### 설정 파일의 쿼리로 실행
+
+`-query`를 생략하면 `config.yaml`의 `search.query`를 씁니다.
+
+```powershell
+python polarion_query_backup.py
+```
+
+`config.yaml`은 기본값이라 `--config`를 따로 붙일 필요가 없습니다. 다른 설정 파일을 쓸
+때만 지정하세요.
+
+```powershell
+python polarion_query_backup.py -query "id:VP\-6955" --config config.other.yaml
+```
+
+### 도움말
+
+```powershell
+python polarion_query_backup.py --help
+```
+
+> **주의**: 실행할 때마다 결과 폴더(`output.directory`, 기본 `polarion_backup/`)를 **지우고
+> 새로 만듭니다.** 쿼리를 바꿔 가며 여러 번 돌릴 때 이전 결과를 남기고 싶다면, 실행 전에
+> 폴더 이름을 바꿔 두거나 `config.yaml`의 `output.directory`를 조정하세요.
 
 ### 첫 시험
 
@@ -167,7 +216,8 @@ Polarion 접속 없이 출력 형식을 먼저 확인하고 싶을 때 열어보
 
 ## 핵심 설계 원칙
 
-- 검색 조건은 코드가 아닌 설정 파일에서 관리한다 (특정 이슈 ID에 종속되지 않음)
+- 검색 조건은 코드 밖(명령행 인자 또는 설정 파일)에서 관리한다 (특정 이슈 ID에 종속되지 않음)
+- 자주 바뀌는 값(쿼리)은 명령행에서, 잘 안 바뀌는 값(서버/필드/출력)은 설정 파일에서 다룬다
 - 개별 첨부파일 실패가 전체 Export를 중단시키지 않는다
 - AI 분석에 불필요한 필드는 출력 단계에서 제외한다
 - 원본 JSON과 사람이 읽는 HTML/Markdown을 함께 보관한다
@@ -181,7 +231,12 @@ Polarion 접속 없이 출력 형식을 먼저 확인하고 싶을 때 열어보
 - **v6**: (당시) PDF 생성 기능 제거, AI 분석용 경량 Markdown 동시 출력, 요약 대시보드,
   목차(TOC) 내비게이션, 이슈별 개별 HTML 분리 저장, Author/Assignee/Reviewer relationship
   필드 정상 표시
-- **v7 (현재)**: PDF 최종 출력을 Playwright 기반으로 재도입. 기존 Edge 헤드리스 CLI
+- **v7**: PDF 최종 출력을 Playwright 기반으로 재도입. 기존 Edge 헤드리스 CLI
   방식은 한글 경로·비정상 종료 코드 문제로 신뢰성이 낮아 제거했었는데, Playwright 내장
   Chromium의 `page.pdf()`로 다시 구현해 훨씬 안정적으로 동작합니다. PDF 생성이 실패해도
   HTML/Markdown 출력에는 영향이 없습니다.
+- **v8 (현재)**: 검색 쿼리를 명령행에서 바로 지정하는 `-query` 옵션 추가
+  (`python polarion_query_backup.py -query "id:VP\-6955"`). 쿼리를 바꿀 때마다
+  `config.yaml`을 열어 수정·저장하던 과정이 사라졌습니다. `--config`는 `config.yaml`을
+  기본값으로 쓰므로 평소에는 생략할 수 있고, 설정 파일 누락·쿼리 누락은 Polarion에
+  접속하기 전에 먼저 걸러서 알려 줍니다.
