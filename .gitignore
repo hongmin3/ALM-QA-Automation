@@ -24,6 +24,7 @@ Thumbs.db
 .DS_Store
 .akela/
 akela/.cache/
+.worktrees/
 
 # Local integration evidence, task backups, and private issue documents
 .migration/
