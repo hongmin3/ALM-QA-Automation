@@ -1,3 +1,5 @@
+# Validates: REQ-CORE-001
+# Validates: REQ-CORE-002
 import importlib.util
 import base64
 import json

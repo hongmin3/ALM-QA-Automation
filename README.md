@@ -32,6 +32,8 @@ python run.py issues -id SAMPLE-101 --timestamp --open
 두 앱의 설정 형식은 유지합니다. SRS는 `apps/srs-spec/config/config.yaml`과 앱 폴더의 `.env`를 사용합니다. 이슈 내보내기는 `apps/issue-export/config.yaml`을 사용합니다. 인증은 기존 `POLARION_TOKEN` 환경변수를 사용하며, 실제 설정과 산출물은 Git에 포함하지 않습니다.
 
 - [사양서 상세 사용법](apps/srs-spec/README.md)
+- [통합 프로그램 기준 사양](SPEC.md)
+- [변경 이력](CHANGELOG.md) · [작업 상태](progress.md)
 - [이슈 내보내기 상세 사용법](apps/issue-export/README.md)
 - [통합 검증 결과와 검증 범위](docs/INTEGRATION_VALIDATION.md)
 - [완전 자동화 제안 및 기존 기능 개선점](docs/AUTOMATION_ROADMAP.md)
@@ -48,4 +50,4 @@ python run.py issues -id SAMPLE-101 --timestamp --open
 python -m pytest tests apps/srs-spec/tests -q
 ```
 
-통합은 기존 두 저장소의 커밋을 다시 쓰지 않고 병합했습니다. 이전 폴더와 Git bundle은 복구용으로 보존하며, 이후 변경은 이 통합 폴더에서만 수행합니다. 운영 환경의 실데이터와 설정은 로컬에만 유지됩니다.
+운영 환경의 실데이터와 설정은 로컬에만 유지됩니다. 유지보수 작업 규칙은 [AGENTS.md](AGENTS.md)를 따릅니다.

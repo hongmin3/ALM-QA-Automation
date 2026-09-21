@@ -1,3 +1,4 @@
+# Validates: REQ-SRS-004
 """ORG 보관 및 다음 실행 자동 정리."""
 from __future__ import annotations
 

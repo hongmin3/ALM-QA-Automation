@@ -1,3 +1,4 @@
+# Validates: REQ-SRS-005
 """주간 실행 마커 - PC가 꺼져 있어 놓친 주만 부팅 시 만회한다."""
 from __future__ import annotations
 

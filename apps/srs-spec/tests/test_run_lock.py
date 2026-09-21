@@ -1,3 +1,4 @@
+# Validates: REQ-SRS-005
 """단일 인스턴스 실행 락 - 정기 실행과 CatchUp 실행이 겹치는 것을 막는다."""
 from __future__ import annotations
 
