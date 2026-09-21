@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### Removed
+
+- 통합 후 참조가 없는 완료 계획서 `docs/superpowers/plans/2026-09-21-integration.md` 제거. 실제 이행 근거는 `docs/INTEGRATION_VALIDATION.md`로 유지.
+- 루트와 SHA-256이 같은 `apps/srs-spec/scripts/find-project-root.ps1` 중복 사본 제거. 공통 `scripts/find-project-root.ps1` 유지.
+- 미참조 표지 이미지 `apps/issue-export/docs/screenshots/01_cover.png`, 비어 있지 않은 계획 폴더의 `docs/plans/.gitkeep` 제거.
+
 ### Added
 
 - REQ-OBS-001: 오프라인 관찰 분석, 변경 전후 근거·후보·처리 상태와 실행 이력 저장.
