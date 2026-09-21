@@ -57,6 +57,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--force", action="store_true", help="오늘자 Snapshot이 있어도 다시 수집")
     p.add_argument("--dry-run", action="store_true", help="지식파일 폴더 반영 단계를 생략(ORG 보관/복사 안 함)")
     p.add_argument(
+        "--no-mail",
+        action="store_true",
+        help="통합 자동화가 단일 요약 메일을 보낼 때 SRS 개별 메일을 생략",
+    )
+    p.add_argument(
         "--recheck-known-problems",
         action="store_true",
         help="config의 render.known_problem_srs 캐시를 무시하고 모든 SRS를 정상 렌더링부터 재확인",
@@ -73,6 +78,16 @@ def parse_args() -> argparse.Namespace:
         "예: --since 2026-07-25",
     )
     return p.parse_args()
+
+
+def _send_pipeline_notification(args, config, summary: dict, report_path: Path) -> bool:
+    if args.no_mail:
+        return False
+    return send_run_report(
+        load_mail_settings(config.raw, PROJECT_ROOT),
+        summary,
+        report_path=report_path,
+    )
 
 
 def _load_all_records_from_disk(config, run_date: str, logger) -> list[dict]:
@@ -476,7 +491,7 @@ def _run_pipeline(config, args, logger, run_date: str, file_date: str) -> int:
                 report_path=md_path,
                 log_path=config.logs_dir / f"automation_{run_date.replace('-', '')}.log",
             )
-            send_run_report(load_mail_settings(config.raw, PROJECT_ROOT), summary, report_path=html_path)
+            _send_pipeline_notification(args, config, summary, html_path)
         except Exception:
             logger.warning("결과 알림 처리 중 오류(자동화 결과에는 영향 없음): %s", traceback.format_exc())
 
