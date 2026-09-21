@@ -1,0 +1,13 @@
+state_dir: ".automation"
+srs_snapshot_dir: "apps/srs-spec/snapshots"
+srs_config: "apps/srs-spec/config/config.yaml"
+issue_config: "apps/issue-export/config.yaml"
+email:
+  max_attempts: 3
+  retry_minutes: [15, 60, 240]
+priority:
+  reopened_statuses: ["reopened"]
+  open_statuses: ["open", "in_progress", "in_review", "reopened"]
+  critical_severities: ["blocker", "critical"]
+  notify_priorities: ["CRITICAL", "HIGH", "MEDIUM"]
+
