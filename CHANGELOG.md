@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Planned
+
+- REQ-AUTO-001~004: 평일 09:00 통합 수집, 명시 링크 기반 영향 분석·우선순위, 기존 SMTP 기반 영속 알림 대기함, 안전한 예약 작업 전환 설계를 승인 사양으로 추가.
+
 ### Removed
 
 - 통합 후 참조가 없는 완료 계획서 `docs/superpowers/plans/2026-09-21-integration.md` 제거. 실제 이행 근거는 `docs/INTEGRATION_VALIDATION.md`로 유지.
