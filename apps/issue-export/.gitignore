@@ -1,0 +1,12 @@
+# 실제 사내 접속 정보/쿼리가 담기는 실행용 설정 (config.example.yaml을 복사해서 사용)
+config.yaml
+
+# 실행 결과물 (실제 이슈 데이터 포함, 용량도 큼)
+polarion_backup/
+
+# Python
+__pycache__/
+*.pyc
+
+# 임시 다운로드 파일
+*.part
