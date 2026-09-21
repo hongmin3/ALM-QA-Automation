@@ -49,7 +49,7 @@ def test_invalid_mode_does_not_run_child():
 
 
 def test_help_from_foreign_directory(tmp_path):
-    for arguments in (['--help'], ['srs', '--help'], ['issues', '--help'], ['observe', '--help']):
+    for arguments in (['--help'], ['srs', '--help'], ['issues', '--help'], ['observe', '--help'], ['auto', '--help']):
         result = subprocess.run(
             [sys.executable, str(ROOT / 'run.py'), *arguments],
             cwd=tmp_path, capture_output=True, text=True,
@@ -93,6 +93,7 @@ def test_powershell_preserves_native_arguments_and_exit_code(tmp_path, arguments
     (['2', '5'], ['issues', '--check-local']),
     (['3', '', 'saved/manifest.json'], ['observe', '--issues', 'saved/manifest.json']),
     (['3', 'current', 'previous', ''], ['observe', '--srs-current', 'current', '--srs-previous', 'previous']),
+    (['4'], ['auto']),
 ])
 def test_menu_routes(answers, expected):
     with patch('builtins.input', side_effect=answers):

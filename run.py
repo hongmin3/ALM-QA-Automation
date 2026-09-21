@@ -10,6 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 APPLICATIONS = {
+    "auto": (ROOT, "automation.py"),
     "srs": (ROOT / "apps" / "srs-spec", "main.py"),
     "issues": (ROOT / "apps" / "issue-export", "polarion_query_backup.py"),
     "observe": (ROOT, "observation.py"),
@@ -23,6 +24,7 @@ def menu_arguments() -> list[str] | None:
     print("  [1] 사양서 자동화     최신 사양서 / 변경 리포트")
     print("  [2] 이슈 내보내기     검색 결과를 PDF · HTML · Markdown으로")
     print("  [3] 관찰 분석         저장된 결과 비교 / 검토 후보 기록")
+    print("  [4] 완전 자동화       SRS·이슈 수집 / 분석 / 설정된 메일 발송")
     print("  [0] 종료")
     print("-" * 64)
     print("  관찰 분석은 서버 접속·배포·메일 발송을 하지 않습니다.")
@@ -78,6 +80,9 @@ def menu_arguments() -> list[str] | None:
             if value:
                 args += [flag, value]
         return args
+    if choice == "4":
+        print("\n  완전 자동화 — 서버 수집, SRS 배포, 설정된 요약 메일 발송을 수행합니다.")
+        return ["auto"]
     raise ValueError("메뉴 번호가 올바르지 않습니다.")
 
 
@@ -102,7 +107,8 @@ def main(argv: list[str] | None = None) -> int:
         if args is None:
             return 0
     if not args or args[0] in ("-h", "--help"):
-        print("Usage: python run.py {srs|issues|observe} [application arguments]")
+        print("Usage: python run.py {auto|srs|issues|observe} [application arguments]")
+        print("  python run.py auto --help")
         print("  python run.py srs --help")
         print("  python run.py issues --help")
         print("  python run.py observe --help")
@@ -111,7 +117,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     mode = args.pop(0)
     if mode not in APPLICATIONS:
-        print(f"Unknown application: {mode}. Choose srs, issues or observe.", file=sys.stderr)
+        print(f"Unknown application: {mode}. Choose auto, srs, issues or observe.", file=sys.stderr)
         return 2
     directory, script = APPLICATIONS[mode]
     print("\n" + "-" * 64, flush=True)

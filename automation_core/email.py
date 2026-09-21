@@ -41,7 +41,9 @@ def build_digest(payload: dict) -> EmailMessage:
         if isinstance(item, dict)
     ]
     safe_body = {
+        "kind": str(payload.get("kind", "UNKNOWN")),
         "status": str(payload.get("status", "UNKNOWN")),
+        "stage": str(payload.get("stage", "")),
         "summaryPath": str(payload.get("summaryPath", "")),
         "candidates": safe_candidates,
     }
@@ -67,16 +69,20 @@ def _load_srs_notify_module(srs_root: Path) -> ModuleType:
     return module
 
 
-def existing_srs_sender(
-    root: Path,
-    config_path: Path,
-) -> Callable[[EmailMessage], bool]:
+def load_existing_srs_mail_settings(root: Path, config_path: Path):
     srs_root = root / "apps" / "srs-spec"
     raw = yaml.safe_load(config_path.read_text(encoding="utf-8-sig")) or {}
     if not isinstance(raw, dict):
         raise ValueError("SRS configuration must be a mapping")
     notify = _load_srs_notify_module(srs_root)
-    settings = notify.load_mail_settings(raw, srs_root)
+    return notify, notify.load_mail_settings(raw, srs_root)
+
+
+def existing_srs_sender(
+    root: Path,
+    config_path: Path,
+) -> Callable[[EmailMessage], bool]:
+    notify, settings = load_existing_srs_mail_settings(root, config_path)
 
     def sender(message: EmailMessage) -> bool:
         message["From"] = settings.from_addr
