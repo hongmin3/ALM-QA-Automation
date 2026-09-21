@@ -26,7 +26,15 @@ class Fixture:
     def sender(self):
         return lambda message: True
 
-    def runner(self, calls: list, *, srs: int = 0, issues: int = 0):
+    def runner(
+        self,
+        calls: list,
+        *,
+        srs: int = 0,
+        issues: int = 0,
+        srs_title: str = "Requirement",
+        linked_issues: list[str] | None = None,
+    ):
         local_date = self.now.date().isoformat()
 
         def run(args: list[str], cwd: Path) -> int:
@@ -42,8 +50,9 @@ class Fixture:
                                 "project_id": "P",
                                 "id": "SRS-1",
                                 "uid": "P/SRS-1",
-                                "title": "Requirement",
+                                "title": srs_title,
                                 "status": "approved",
+                                "linkedWorkItems": linked_issues or [],
                             }
                         ),
                         encoding="utf-8",
@@ -176,6 +185,46 @@ def test_successful_same_day_rerun_only_drains_outbox(tmp_path: Path) -> None:
 
     assert calls == []
     assert result["resumedOutboxOnly"] is True
+
+
+def test_synthetic_end_to_end_sends_one_candidate_once(tmp_path: Path) -> None:
+    fixture = make_fixture(tmp_path)
+    baseline = run_automation(
+        fixture.config,
+        fixture.store,
+        fixture.runner([]),
+        fixture.sender,
+        fixture.now,
+    )
+    assert baseline["candidateCount"] == 0
+
+    fixture.now = datetime(2026, 9, 22, tzinfo=timezone.utc)
+    sent = []
+    result = run_automation(
+        fixture.config,
+        fixture.store,
+        fixture.runner([], srs_title="Changed", linked_issues=["P/ISSUE-7"]),
+        lambda message: sent.append(message) or True,
+        fixture.now,
+    )
+
+    assert result["status"] == "SUCCESS"
+    assert result["candidateCount"] == 1
+    assert result["notificationCount"] == 1
+    assert len(sent) == 1
+    assert next(iter(fixture.store.load_outbox()["messages"].values()))["status"] == "SENT"
+
+    calls = []
+    replay = run_automation(
+        fixture.config,
+        fixture.store,
+        fixture.runner(calls, srs_title="Changed", linked_issues=["P/ISSUE-7"]),
+        lambda message: sent.append(message) or True,
+        fixture.now,
+    )
+    assert replay["resumedOutboxOnly"] is True
+    assert calls == []
+    assert len(sent) == 1
 
 
 def test_check_local_never_runs_network_or_smtp(tmp_path: Path, monkeypatch) -> None:
