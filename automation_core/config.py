@@ -82,4 +82,3 @@ def load_automation_config(path: Path, root: Path) -> AutomationConfig:
             ),
         ),
     )
-

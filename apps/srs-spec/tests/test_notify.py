@@ -41,4 +41,3 @@ def test_send_run_report_uses_generic_sender(monkeypatch) -> None:
     assert notify.send_run_report(settings(), sample_summary()) is True
     assert len(sent) == 1
     assert "SRS" in sent[0]["Subject"]
-

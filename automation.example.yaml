@@ -10,4 +10,3 @@ priority:
   open_statuses: ["open", "in_progress", "in_review", "reopened"]
   critical_severities: ["blocker", "critical"]
   notify_priorities: ["CRITICAL", "HIGH", "MEDIUM"]
-

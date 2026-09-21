@@ -108,4 +108,3 @@ def test_id_extraction_uses_token_boundaries() -> None:
     value = {"text": "See ISSUE-7 and P/I-2, but not XISSUE-71Z."}
 
     assert extract_polarion_ids(value) == frozenset({"ISSUE-7", "I-2"})
-

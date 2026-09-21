@@ -159,4 +159,3 @@ def correlate(
         result,
         key=lambda item: (PRIORITY_ORDER[item["priority"]], item["project"], item["itemId"]),
     )
-
