@@ -192,3 +192,30 @@ def test_optional_manifest_health_fields_rejected(tmp_path):
         dest = tmp_path / ("state" + str(index))
         assert module().main(["--issues", str(manifest), "--state-dir", str(dest)]) == 2
         assert not (dest / "state.json").exists()
+
+
+def test_migration_preserves_done_review_and_original_file(tmp_path):
+    from automation_core.state import AutomationStore
+
+    old = tmp_path / ".observation" / "state.json"
+    original = {
+        "schemaVersion": 1,
+        "sources": {"srs": {}},
+        "candidates": {
+            "abc": {
+                "id": "abc",
+                "source": "srs",
+                "project": "P",
+                "itemId": "S-1",
+                "reviewState": "DONE",
+            }
+        },
+        "runs": {},
+    }
+    write(old, original)
+    store = AutomationStore(tmp_path / ".automation")
+
+    assert store.migrate_observation(old) is True
+    assert store.load_state()["candidates"]["abc"]["reviewState"] == "DONE"
+    assert json.loads(old.read_text(encoding="utf-8")) == original
+    assert store.migrate_observation(old) is False

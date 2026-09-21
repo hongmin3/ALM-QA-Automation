@@ -19,7 +19,7 @@ class AutomationStore:
         self.root.mkdir(parents=True, exist_ok=True)
 
     @contextmanager
-    def locked(self) -> Iterator[None]:
+    def locked(self, *, blocking: bool = True) -> Iterator[None]:
         lock_path = self.root / ".lock"
         with lock_path.open("a+b") as handle:
             handle.seek(0, os.SEEK_END)
@@ -30,7 +30,8 @@ class AutomationStore:
             if os.name == "nt":
                 import msvcrt
 
-                msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+                mode = msvcrt.LK_LOCK if blocking else msvcrt.LK_NBLCK
+                msvcrt.locking(handle.fileno(), mode, 1)
                 try:
                     yield
                 finally:
@@ -39,7 +40,8 @@ class AutomationStore:
             else:
                 import fcntl
 
-                fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+                mode = fcntl.LOCK_EX if blocking else fcntl.LOCK_EX | fcntl.LOCK_NB
+                fcntl.flock(handle.fileno(), mode)
                 try:
                     yield
                 finally:
@@ -52,6 +54,7 @@ class AutomationStore:
         )
 
     def save_state(self, value: dict) -> None:
+        self._validate_state_object(value, expected_schema=2, name="state.json")
         self._atomic_write_at(self.root / "state.json", value)
 
     def load_outbox(self) -> dict:
@@ -61,7 +64,31 @@ class AutomationStore:
         )
 
     def save_outbox(self, value: dict) -> None:
+        self._validate_state_object(value, expected_schema=1, name="outbox.json")
         self._atomic_write_at(self.root / "outbox.json", value)
+
+    def migrate_observation(self, path: Path) -> bool:
+        if not path.is_file():
+            return False
+        state = self.load_state()
+        migrations = state.setdefault("migrations", {})
+        if not isinstance(migrations, dict):
+            raise ValueError("state migrations must be an object")
+        marker = "observationSchema1"
+        if marker in migrations:
+            return False
+
+        old = json.loads(path.read_text(encoding="utf-8-sig"))
+        self._validate_state_object(old, expected_schema=1, name="observation state")
+        for key in ("sources", "candidates", "runs"):
+            source = old.get(key)
+            target = state.get(key)
+            if not isinstance(source, dict) or not isinstance(target, dict):
+                raise ValueError(f"observation {key} must be an object")
+            state[key] = {**source, **target}
+        migrations[marker] = str(path.resolve())
+        self.save_state(state)
+        return True
 
     def enqueue(self, payload: dict) -> tuple[str, bool]:
         message_id = hashlib.sha256(canonical_json(payload).encode("utf-8")).hexdigest()
@@ -120,9 +147,20 @@ class AutomationStore:
         return value
 
     def _atomic_write_at(self, path: Path, value: dict) -> None:
-        if not isinstance(value, dict) or not isinstance(value.get("schemaVersion"), int):
-            raise ValueError(f"invalid state value for {path.name}")
+        if not isinstance(value, dict):
+            raise ValueError(f"invalid JSON object for {path.name}")
         self._atomic_text_at(path, canonical_json(value) + "\n")
+
+    def atomic_text(self, path: Path, value: str) -> None:
+        resolved = path.resolve()
+        if not resolved.is_relative_to(self.root):
+            raise ValueError("atomic output must remain inside state directory")
+        self._atomic_text_at(resolved, value)
+
+    @staticmethod
+    def _validate_state_object(value: object, *, expected_schema: int, name: str) -> None:
+        if not isinstance(value, dict) or value.get("schemaVersion") != expected_schema:
+            raise ValueError(f"invalid state file: {name}")
 
     def _atomic_text_at(self, path: Path, value: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -137,4 +175,3 @@ class AutomationStore:
         finally:
             if temporary.exists():
                 temporary.unlink()
-

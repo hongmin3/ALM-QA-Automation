@@ -17,6 +17,10 @@ from pathlib import Path
 import sys
 import uuid
 
+from automation_core.config import PriorityRules
+from automation_core.correlation import compute_changes, correlate
+from automation_core.state import AutomationStore
+
 
 REVIEW_STATES = ("NEW", "IN_REVIEW", "DONE", "EXCLUDED")
 VOLATILE = {"collected_at", "collectedAt", "generatedAt", "elapsedSeconds",
@@ -108,33 +112,11 @@ def load_issues(path):
 
 @contextmanager
 def run_lock(root):
-    root.mkdir(parents=True, exist_ok=True)
-    path = root / ".lock"
-    # Keep the same inode permanently: unlinking a lock file can allow two
-    # processes to lock different inodes. The OS releases this lock on death.
-    with path.open("a+b") as stream:
-        stream.seek(0, os.SEEK_END)
-        if stream.tell() == 0:
-            stream.write(b"\0")
-            stream.flush()
-        stream.seek(0)
-        if os.name == "nt":
-            import msvcrt
-            acquire = lambda: msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
-            release = lambda: msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
-        else:
-            import fcntl
-            acquire = lambda: fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            release = lambda: fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
-        try:
-            acquire()
-        except OSError as exc:
-            raise ValueError("Another observation run holds the lock") from exc
-        try:
+    try:
+        with AutomationStore(root).locked(blocking=False):
             yield
-        finally:
-            stream.seek(0)
-            release()
+    except OSError as exc:
+        raise ValueError("Another observation run holds the lock") from exc
 
 
 def write_file(path, text):
@@ -163,7 +145,7 @@ def markdown(summary):
 
 
 def validate_state(state):
-    if (state.get("schemaVersion") != 1
+    if (state.get("schemaVersion") != 2
             or any(not isinstance(state.get(key), dict) for key in ("sources", "candidates", "runs"))):
         raise ValueError("Unsupported or corrupt observation state")
     for source, records in state["sources"].items():
@@ -180,9 +162,10 @@ def validate_state(state):
 def observe(args):
     root = args.state_dir.resolve()
     with run_lock(root):
-        state_path = root / "state.json"
-        state = read_json(state_path) if state_path.exists() else {
-            "schemaVersion": 1, "sources": {}, "candidates": {}, "runs": {}}
+        store = AutomationStore(root)
+        if root.name == ".automation":
+            store.migrate_observation(root.parent / ".observation" / "state.json")
+        state = store.load_state()
         validate_state(state)
         sources = {}
         if args.srs_current:
@@ -197,31 +180,40 @@ def observe(args):
                    "inputs": {key: str(value.resolve()) for key, value in (
                        ("srsCurrent", args.srs_current), ("srsPrevious", args.srs_previous),
                        ("issues", args.issues)) if value is not None}}
+        changes = {"srs": [], "issues": []}
         for source, records in sources.items():
             previous = previous_srs if source == "srs" and previous_srs is not None else state["sources"].get(source)
             summary["sourceCounts"][source] = len(records)
             if previous is None:
                 summary["baselineSources"].append(source)
             else:
-                for key, item in records.items():
-                    before = previous.get(key, {}).get("record")
-                    after = item["record"]
-                    if before == after:
-                        continue
-                    candidate_id = digest([source, item["project"], item["itemId"], digest(before), digest(after)])
-                    if candidate_id not in state["candidates"]:
-                        state["candidates"][candidate_id] = {
-                            "id": candidate_id, "source": source, "project": item["project"], "itemId": item["itemId"],
-                            "change": "NEW" if before is None else "CHANGED", "reviewState": "NEW",
-                            "beforeVersion": digest(before), "afterVersion": digest(after),
-                            "before": before, "after": after,
-                            "statusChange": {"before": status_of(source, before), "after": status_of(source, after)},
-                            "firstRunId": run_id}
-                        summary["newCandidateIds"].append(candidate_id)
-                    summary["candidateIds"].append(candidate_id)
+                changes[source] = compute_changes(source, records, previous)
             # Absences are not deletions, even for a successful collection of a
             # different query. Retain last-known records until explicitly seen.
             state["sources"][source] = {**state["sources"].get(source, {}), **records}
+        default_rules = PriorityRules(
+            reopened_statuses=frozenset({"reopened"}),
+            open_statuses=frozenset({"open", "in_progress", "in_review", "reopened"}),
+            critical_severities=frozenset({"blocker", "critical"}),
+            notify_priorities=frozenset({"CRITICAL", "HIGH", "MEDIUM"}),
+        )
+        correlated = correlate(
+            changes["srs"],
+            changes["issues"],
+            state["sources"].get("srs", {}),
+            state["sources"].get("issues", {}),
+            default_rules,
+        )
+        for candidate in correlated:
+            candidate_id = candidate["id"]
+            if candidate_id not in state["candidates"]:
+                state["candidates"][candidate_id] = {
+                    **candidate,
+                    "reviewState": "NEW",
+                    "firstRunId": run_id,
+                }
+                summary["newCandidateIds"].append(candidate_id)
+            summary["candidateIds"].append(candidate_id)
         if args.candidate:
             if args.candidate not in state["candidates"]:
                 raise ValueError("Unknown candidate ID")
@@ -229,18 +221,13 @@ def observe(args):
             summary["reviewUpdate"] = {"id": args.candidate, "reviewState": args.review_state}
         summary["candidates"] = [copy.deepcopy(state["candidates"][key]) for key in summary["candidateIds"]]
         state["runs"][run_id] = summary
-        runs = root / "runs"
-        runs.mkdir(exist_ok=True)
-        run_dir = runs / run_id
-        run_dir.mkdir()
-        temporary = root / (".state-" + uuid.uuid4().hex + ".tmp")
+        run_dir = root / "runs" / run_id
+        run_dir.mkdir(parents=True)
         try:
-            write_file(run_dir / "summary.json", encoded(summary))
-            write_file(run_dir / "summary.md", markdown(summary))
-            write_file(temporary, encoded(state))
-            os.replace(temporary, state_path)
+            store.atomic_text(run_dir / "summary.json", encoded(summary))
+            store.atomic_text(run_dir / "summary.md", markdown(summary))
+            store.save_state(state)
         except BaseException:
-            temporary.unlink(missing_ok=True)
             for filename in ("summary.json", "summary.md"):
                 (run_dir / filename).unlink(missing_ok=True)
             run_dir.rmdir()
@@ -253,7 +240,7 @@ def main(argv=None):
     parser.add_argument("--srs-current", type=Path, help="Snapshot date directory containing project JSON directories")
     parser.add_argument("--srs-previous", type=Path, help="Explicit prior SRS date directory")
     parser.add_argument("--issues", type=Path, help="Verified successful issue manifest.json")
-    parser.add_argument("--state-dir", type=Path, default=Path(__file__).resolve().parent / ".observation")
+    parser.add_argument("--state-dir", type=Path, default=Path(__file__).resolve().parent / ".automation")
     parser.add_argument("--candidate", help="Candidate ID whose review state should change")
     parser.add_argument("--review-state", choices=REVIEW_STATES)
     args = parser.parse_args(argv)
