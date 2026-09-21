@@ -1,0 +1,2 @@
+-r apps/srs-spec/requirements.txt
+-r apps/issue-export/requirements.txt

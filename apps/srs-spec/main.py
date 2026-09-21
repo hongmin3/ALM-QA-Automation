@@ -35,6 +35,7 @@ from src.problem_state import ProblemState
 from src.publish import PublishResult, archive_and_publish
 from src.render_recovery import render_group_pdf_with_recovery
 from src.report import save_reports
+from src.run_lock import LockHeldError, RunLock, lock_path
 from src.run_marker import already_ran_this_week, write_run
 from src.snapshot_store import (
     find_baseline_snapshot_date,
@@ -246,31 +247,14 @@ def _run_since_report(config, args, logger, run_date: str) -> int:
     return 0
 
 
-def main() -> int:
-    args = parse_args()
-    run_date = date.today().isoformat()
-    file_date_placeholder = "temp"
+def _run_pipeline(config, args, logger, run_date: str, file_date: str) -> int:
+    """CatchUp 판단부터 반영/알림까지 - 파이프라인 본체.
 
-    try:
-        config = load_config()
-    except ConfigError as exc:
-        print(f"[설정 오류] {exc}", file=sys.stderr)
-        return 2
-
-    logger = setup_logging(config.logs_dir, run_date.replace("-", ""))
-    file_date = date.today().strftime(config.filename_date_format)
-
-    # 기간 변경 리포트만 뽑는 조회 모드. 배포/메일/마커를 건드리지 않는다.
-    if args.since:
-        try:
-            return _run_since_report(config, args, logger, run_date)
-        except PolarionApiError as exc:
-            logger.error("Polarion 접근 실패: %s", exc)
-            return 3
-        except Exception:
-            logger.error("기간 변경 리포트 생성 실패:\n%s", traceback.format_exc())
-            return 1
-
+    이 함수 전체가 호출부(`main`)에서 RunLock으로 감싸진다. 정기 실행 작업과
+    부팅 CatchUp 작업은 서로 다른 두 개의 Windows 작업 스케줄러 항목이라, 하나가
+    예정 시각을 놓쳐 `StartWhenAvailable`로 지연 실행되는 동안 다른 하나가 부팅
+    트리거로 겹쳐 실행될 수 있다(2026-09-21 실측 - `run_lock.py` 상단 설명 참고).
+    """
     # PC 시작 시 트리거로 들어온 경우: 이번 주에 이미 수행했으면 아무것도 하지 않는다.
     # (예정 시각에 PC가 꺼져 있어 실행을 놓친 주만 여기서 만회된다)
     if args.catch_up:
@@ -499,6 +483,49 @@ def main() -> int:
     except Exception:
         logger.error("예상치 못한 오류 발생:\n%s", traceback.format_exc())
         return 1
+
+
+def main() -> int:
+    args = parse_args()
+    run_date = date.today().isoformat()
+    file_date_placeholder = "temp"
+
+    try:
+        config = load_config()
+    except ConfigError as exc:
+        print(f"[설정 오류] {exc}", file=sys.stderr)
+        return 2
+
+    logger = setup_logging(config.logs_dir, run_date.replace("-", ""))
+    file_date = date.today().strftime(config.filename_date_format)
+
+    # 기간 변경 리포트만 뽑는 조회 모드. 배포/메일/마커를 건드리지 않고, PDF/snapshot을
+    # 쓰지 않는 순수 조회라 파이프라인과 동시에 실행돼도 안전하다 - 아래 실행 락 대상에서
+    # 제외한다.
+    if args.since:
+        try:
+            return _run_since_report(config, args, logger, run_date)
+        except PolarionApiError as exc:
+            logger.error("Polarion 접근 실패: %s", exc)
+            return 3
+        except Exception:
+            logger.error("기간 변경 리포트 생성 실패:\n%s", traceback.format_exc())
+            return 1
+
+    # 정기 실행 작업과 부팅 CatchUp 작업이 겹쳐 실행되는 것을 막는다 - 서로 다른 두 개의
+    # Windows 작업 스케줄러 항목이라 MultipleInstances=IgnoreNew로는 막을 수 없다
+    # (run_lock.py 참고).
+    lock = RunLock(lock_path(config.logs_dir))
+    try:
+        lock.acquire()
+    except LockHeldError as exc:
+        logger.info("다른 실행이 이미 진행 중이라 이번 실행은 넘깁니다: %s", exc)
+        return 0
+
+    try:
+        return _run_pipeline(config, args, logger, run_date, file_date)
+    finally:
+        lock.release()
 
 
 if __name__ == "__main__":

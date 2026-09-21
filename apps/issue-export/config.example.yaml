@@ -10,11 +10,20 @@ polarion:
   request_interval_seconds: 0.15
   page_size: 100
 
+  # 네트워크가 잠깐 끊기거나 서버가 429/5xx로 답할 때 재시도할 횟수.
+  # 0이면 재시도하지 않습니다. (401/403/404처럼 설정을 고쳐야 하는
+  # 오류는 재시도해도 의미가 없으므로 즉시 중단합니다.)
+  max_retries: 3
+
+  # 재시도 대기 시간(초). 시도할 때마다 2배씩 늘어납니다. (2 → 4 → 8초)
+  retry_backoff_seconds: 2
+
 search:
   # query는 명령행 인자로 덮어쓸 수 있습니다. 조건이 매번 바뀐다면 아래 값은 그대로 두고
   # 실행할 때 넘기는 쪽이 편합니다.
-  #   python polarion_query_backup.py -query "id:VP\-6955"
-  # 명령행 -query가 있으면 아래 query 값은 무시됩니다(설정 파일은 수정되지 않습니다).
+  #   python polarion_query_backup.py -id VP-6955           (이슈 몇 건만 뽑을 때)
+  #   python polarion_query_backup.py -query "status:(in_progress)"
+  # 명령행 -id / -query가 있으면 아래 query 값은 무시됩니다(설정 파일은 수정되지 않습니다).
   #
   # 가장 안전한 방법:
   # Polarion 검색 화면에서 Query Pane > Convert to Text로 변환한 문자열을 그대로 붙여넣으세요.
@@ -91,8 +100,15 @@ fields:
     - {key: "logPath", label: "로그경로"}
 
 output:
+  # 명령행 -o 폴더명 으로 이번 실행에만 바꿀 수 있습니다.
+  # 실행할 때마다 이 폴더를 지우고 새로 만드므로, 이전 결과를 남기려면
+  # -o 다른폴더 또는 --timestamp 를 사용하세요.
   directory: "polarion_backup"
   html_filename: "polarion_query_backup.html"
+
+  # 결과 문서(PDF/HTML/Markdown) 맨 위에 찍히는 제목.
+  # 명령행 --title "..." 로 이번 실행에만 바꿀 수도 있습니다.
+  document_title: "ALM Issue Report"
 
   # 최종 PDF 생성 여부 (Playwright 내장 Chromium으로 인쇄).
   # PDF 생성이 실패해도 HTML/Markdown은 정상적으로 남습니다.

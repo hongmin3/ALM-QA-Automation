@@ -8,6 +8,7 @@ import mimetypes
 import os
 import re
 import shutil
+import subprocess
 import sys
 import time
 from collections import Counter
@@ -27,6 +28,24 @@ IMAGE_EXTENSIONS = {
 DEFAULT_VIDEO_EXTENSIONS = {
     ".mp4", ".avi", ".mov", ".wmv", ".mkv", ".webm"
 }
+
+# 일시적인 서버/과부하 응답. 이 코드들만 재시도한다.
+# (401/403/404처럼 설정을 고쳐야 하는 오류는 재시도해도 의미가 없다.)
+RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+
+# Polarion 검색 Query(Lucene)에서 특별한 뜻을 갖는 문자.
+# -id 옵션으로 받은 이슈 ID를 쿼리로 바꿀 때 이스케이프한다.
+LUCENE_SPECIAL_CHARACTERS = set(r'+-&|!(){}[]^"~*?:\/')
+
+# config.example.yaml을 복사만 하고 값을 채우지 않은 상태를 걸러내기 위한 값.
+PLACEHOLDER_CONFIG_VALUES = {
+    "https://your-polarion-server.example.com",
+    "YOUR_PROJECT_ID",
+}
+
+# 결과 문서(PDF/HTML/Markdown) 맨 위에 찍히는 제목.
+# config.yaml의 output.document_title 또는 명령행 --title 로 바꿀 수 있다.
+DEFAULT_DOCUMENT_TITLE = "ALM Issue Report"
 
 
 def load_config(path: Path) -> dict[str, Any]:
@@ -195,6 +214,14 @@ class PolarionClient:
         self.timeout = int(polarion_config.get("timeout_seconds", 90))
         self.interval = float(polarion_config.get("request_interval_seconds", 0.15))
         self.page_size = int(polarion_config.get("page_size", 100))
+        self.max_retries = max(
+            0,
+            int(polarion_config.get("max_retries", 3)),
+        )
+        self.retry_backoff = max(
+            0.0,
+            float(polarion_config.get("retry_backoff_seconds", 2.0)),
+        )
 
         token_environment_name = polarion_config.get(
             "token_env",
@@ -217,37 +244,94 @@ class PolarionClient:
             }
         )
 
+    def wait_before_retry(
+        self,
+        attempt: int,
+        reason: str,
+        response: requests.Response | None = None,
+    ) -> None:
+        delay = self.retry_backoff * (2**attempt)
+
+        if response is not None:
+            retry_after = str(
+                response.headers.get("Retry-After", "")
+            ).strip()
+
+            if retry_after.isdigit():
+                delay = max(delay, float(retry_after))
+
+        print(
+            f"    일시적 오류({reason}) — {delay:.0f}초 후 재시도 "
+            f"[{attempt + 1}/{self.max_retries}]"
+        )
+        time.sleep(delay)
+
     def request(
         self,
         method: str,
         url: str,
         **kwargs: Any,
     ) -> requests.Response:
-        time.sleep(self.interval)
+        last_network_error: Exception | None = None
 
-        response = self.session.request(
-            method,
-            url,
-            timeout=self.timeout,
-            verify=self.verify_ssl,
-            **kwargs,
+        for attempt in range(self.max_retries + 1):
+            time.sleep(self.interval)
+
+            try:
+                response = self.session.request(
+                    method,
+                    url,
+                    timeout=self.timeout,
+                    verify=self.verify_ssl,
+                    **kwargs,
+                )
+            except (
+                requests.exceptions.Timeout,
+                requests.exceptions.ConnectionError,
+            ) as network_error:
+                last_network_error = network_error
+
+                if attempt >= self.max_retries:
+                    break
+
+                self.wait_before_retry(
+                    attempt,
+                    type(network_error).__name__,
+                )
+                continue
+
+            if response.status_code == 401:
+                raise RuntimeError("401 Unauthorized: PAT를 확인하세요.")
+
+            if response.status_code == 403:
+                raise RuntimeError(
+                    f"403 Forbidden: 조회 권한이 없습니다. URL={response.url}"
+                )
+
+            if response.status_code == 404:
+                raise RuntimeError(
+                    f"404 Not Found: URL 또는 Project ID를 확인하세요. URL={response.url}"
+                )
+
+            if (
+                response.status_code in RETRYABLE_STATUS_CODES
+                and attempt < self.max_retries
+            ):
+                self.wait_before_retry(
+                    attempt,
+                    f"HTTP {response.status_code}",
+                    response,
+                )
+                continue
+
+            response.raise_for_status()
+            return response
+
+        raise RuntimeError(
+            f"서버에 연결하지 못했습니다 ({self.max_retries + 1}회 시도). "
+            "네트워크/VPN 연결과 config.yaml의 polarion.host를 확인하세요. "
+            f"원인: {last_network_error}"
         )
-
-        if response.status_code == 401:
-            raise RuntimeError("401 Unauthorized: PAT를 확인하세요.")
-
-        if response.status_code == 403:
-            raise RuntimeError(
-                f"403 Forbidden: 조회 권한이 없습니다. URL={response.url}"
-            )
-
-        if response.status_code == 404:
-            raise RuntimeError(
-                f"404 Not Found: URL 또는 Project ID를 확인하세요. URL={response.url}"
-            )
-
-        response.raise_for_status()
-        return response
 
     def get_json(
         self,
@@ -1004,6 +1088,7 @@ def render_workitem(
     attachment_lookup: dict[str, dict[str, Any]],
     embed_images: bool,
     anchor: str,
+    status_display: str = "",
 ) -> str:
     workitem_attributes = inject_relationship_fields(
         workitem, dict(attrs(workitem))
@@ -1090,8 +1175,10 @@ def render_workitem(
         )
 
     return f"""
-<section class="work-item" id="{html.escape(anchor)}">
+<section class="work-item" id="{html.escape(anchor)}"
+         data-wi-status="{html.escape(status_display, quote=True)}">
   <header>
+    <a class="back-to-toc screen-only" href="#toc">↑ 목차</a>
     <div class="wi-id">{html.escape(workitem_id)}</div>
     <h1>{html.escape(title)}</h1>
   </header>
@@ -1401,6 +1488,11 @@ pre {
         color: #000;
         text-decoration: none;
     }
+
+    /* 검색창·목차 복귀 링크 등 화면 전용 UI는 인쇄물에 남기지 않는다. */
+    .screen-only {
+        display: none !important;
+    }
 }
 
 .summary-dashboard,
@@ -1443,6 +1535,190 @@ pre {
 .toc-table a {
     color: inherit;
     text-decoration: none;
+}
+
+/* ------------------------------------------------------------------
+   화면(브라우저)에서만 적용되는 스타일.
+   위쪽 규칙은 A4 인쇄 기준(pt 단위)이라 모니터에서는 글자가 작고
+   본문이 화면 끝까지 늘어난다. 아래 블록은 화면에서만 덮어쓰므로
+   PDF 출력 결과는 이전과 완전히 동일하다.
+   ------------------------------------------------------------------ */
+@media screen {
+    body {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 0 28px 96px;
+        font-size: 15px;
+        line-height: 1.65;
+        color: #1f2933;
+        background: #ffffff;
+    }
+
+    .cover {
+        min-height: auto;
+        padding: 8px 0 26px;
+        margin-bottom: 4px;
+        border-bottom: 1px solid #dde3e9;
+    }
+
+    .cover h1 {
+        font-size: 30px;
+    }
+
+    h1 {
+        font-size: 23px;
+    }
+
+    h2 {
+        margin-top: 30px;
+        font-size: 18px;
+    }
+
+    h3 {
+        font-size: 16px;
+    }
+
+    .wi-id {
+        font-size: 19px;
+        color: #176b87;
+    }
+
+    th,
+    td {
+        padding: 9px 10px;
+        font-size: 14.5px;
+    }
+
+    .stats-table th,
+    .stats-table td,
+    .toc-table th,
+    .toc-table td {
+        padding: 8px 10px;
+        font-size: 14px;
+    }
+
+    pre {
+        font-size: 13px;
+    }
+
+    .attachment-meta {
+        font-size: 13px;
+    }
+
+    .workitem-type-icon {
+        font-size: 11px;
+    }
+
+    /* 화면에서는 A4 한 페이지 높이에 맞출 이유가 없다. */
+    .embedded-workitem-image,
+    .attachment-image img {
+        max-height: none;
+    }
+
+    /* 인쇄물에서는 링크 표시가 방해지만, 화면에서는 눌러야 할 것이
+       눌러야 할 것처럼 보여야 한다. */
+    .toc-table a,
+    .linked-table a {
+        color: #176b87;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    .toc-table a:hover,
+    .linked-table a:hover {
+        color: #0f4f66;
+    }
+
+    .toc-table tbody tr:hover {
+        background: #f4f8fa;
+    }
+
+    .work-item {
+        margin-top: 34px;
+        padding-top: 18px;
+        border-top: 1px solid #e3e8ed;
+    }
+
+    /* 상단 고정 도구모음에 제목이 가려지지 않도록 여유를 둔다. */
+    .work-item,
+    .toc,
+    .summary-dashboard {
+        scroll-margin-top: 76px;
+    }
+
+    .screen-toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+        margin: 0 -28px 20px;
+        padding: 12px 28px;
+        background: #ffffff;
+        border-bottom: 1px solid #dde3e9;
+    }
+
+    .screen-toolbar input[type="search"],
+    .screen-toolbar select {
+        font: inherit;
+        font-size: 14px;
+        padding: 7px 10px;
+        color: inherit;
+        background: #fff;
+        border: 1px solid #c3ccd4;
+        border-radius: 4px;
+    }
+
+    .screen-toolbar input[type="search"] {
+        flex: 1 1 260px;
+        min-width: 160px;
+    }
+
+    .toolbar-count {
+        font-size: 13.5px;
+        color: #5b6b7a;
+        white-space: nowrap;
+    }
+
+    .toolbar-link {
+        margin-left: auto;
+        padding: 6px 12px;
+        font-size: 14px;
+        color: #176b87;
+        text-decoration: none;
+        border: 1px solid #c3ccd4;
+        border-radius: 4px;
+        white-space: nowrap;
+    }
+
+    .toolbar-link:hover {
+        background: #f0f6f8;
+    }
+
+    .back-to-toc {
+        float: right;
+        font-size: 13px;
+        color: #176b87;
+        text-decoration: none;
+    }
+
+    .back-to-toc:hover {
+        text-decoration: underline;
+    }
+
+    .filter-hidden {
+        display: none !important;
+    }
+
+    .filter-empty {
+        margin: 24px 0;
+        padding: 16px;
+        color: #5b6b7a;
+        background: #f6f8fa;
+        border: 1px dashed #c3ccd4;
+    }
 }
 """
 
@@ -1501,23 +1777,135 @@ def render_toc(entries: list[dict[str, str]]) -> str:
     if not entries:
         return ""
 
-    rows = "".join(
-        "<tr>"
-        f"<td><a href='#{html.escape(entry['anchor'])}'>{html.escape(entry['id'])}</a></td>"
-        f"<td>{html.escape(entry['title'])}</td>"
-        f"<td>{html.escape(entry['status'])}</td>"
-        "</tr>"
-        for entry in entries
-    )
+    row_list: list[str] = []
+
+    for entry in entries:
+        anchor = html.escape(entry["anchor"])
+        link_target = f"#{anchor}"
+
+        row_list.append(
+            f"<tr data-anchor='{anchor}'>"
+            f"<td><a href='{link_target}'>{html.escape(entry['id'])}</a></td>"
+            f"<td><a href='{link_target}'>{html.escape(entry['title'])}</a></td>"
+            f"<td>{html.escape(entry['status'])}</td>"
+            "</tr>"
+        )
 
     return (
-        "<section class='toc'>"
+        "<section class='toc' id='toc'>"
         "<h2>목차</h2>"
         "<table class='toc-table'>"
         "<thead><tr><th>번호</th><th>제목</th><th>Status</th></tr></thead>"
-        f"<tbody>{rows}</tbody></table>"
+        f"<tbody>{''.join(row_list)}</tbody></table>"
         "</section>"
     )
+
+
+def render_screen_toolbar(entries: list[dict[str, str]]) -> str:
+    """화면에서만 보이는 검색/필터 도구모음 (인쇄·PDF에서는 숨겨진다)."""
+    if not entries:
+        return ""
+
+    statuses = sorted(
+        {
+            entry["status"]
+            for entry in entries
+            if entry.get("status")
+        }
+    )
+
+    options = "".join(
+        f'<option value="{html.escape(status, quote=True)}">'
+        f"{html.escape(status)}</option>"
+        for status in statuses
+    )
+
+    return (
+        "<div class='screen-toolbar screen-only'>"
+        "<input type='search' id='wi-filter' autocomplete='off' "
+        "placeholder='이슈 ID · 제목 · 본문 내용으로 검색'>"
+        "<select id='wi-status'>"
+        f"<option value=''>Status 전체</option>{options}"
+        "</select>"
+        f"<span class='toolbar-count' id='wi-count'>{len(entries)}건</span>"
+        "<a class='toolbar-link' href='#toc'>목차로</a>"
+        "</div>"
+    )
+
+
+# 화면 전용 검색/필터 동작. 인쇄·PDF에는 영향을 주지 않으며,
+# 스크립트가 실행되지 않아도 문서 내용은 그대로 다 보인다.
+SCREEN_SCRIPT = """
+(function () {
+  var input = document.getElementById('wi-filter');
+
+  if (!input) {
+    return;
+  }
+
+  var statusSelect = document.getElementById('wi-status');
+  var counter = document.getElementById('wi-count');
+  var emptyNotice = document.getElementById('wi-empty');
+
+  var sections = Array.prototype.slice.call(
+    document.querySelectorAll('.work-item')
+  );
+  var rows = Array.prototype.slice.call(
+    document.querySelectorAll('.toc-table tbody tr')
+  );
+
+  sections.forEach(function (section) {
+    section.setAttribute(
+      'data-search-text',
+      (section.textContent || '').toLowerCase()
+    );
+  });
+
+  function applyFilter() {
+    var term = input.value.trim().toLowerCase();
+    var status = statusSelect ? statusSelect.value : '';
+    var matchedAnchors = {};
+    var visible = 0;
+
+    sections.forEach(function (section) {
+      var text = section.getAttribute('data-search-text') || '';
+      var sectionStatus = section.getAttribute('data-wi-status') || '';
+      var matched =
+        (term === '' || text.indexOf(term) !== -1) &&
+        (status === '' || sectionStatus === status);
+
+      section.classList.toggle('filter-hidden', !matched);
+      matchedAnchors[section.id] = matched;
+
+      if (matched) {
+        visible += 1;
+      }
+    });
+
+    rows.forEach(function (row) {
+      var anchor = row.getAttribute('data-anchor') || '';
+      row.classList.toggle('filter-hidden', !matchedAnchors[anchor]);
+    });
+
+    if (counter) {
+      counter.textContent =
+        term === '' && status === ''
+          ? sections.length + '건'
+          : visible + ' / ' + sections.length + '건';
+    }
+
+    if (emptyNotice) {
+      emptyNotice.classList.toggle('filter-hidden', visible !== 0);
+    }
+  }
+
+  input.addEventListener('input', applyFilter);
+
+  if (statusSelect) {
+    statusSelect.addEventListener('change', applyFilter);
+  }
+})();
+"""
 
 
 def make_html(
@@ -1527,21 +1915,34 @@ def make_html(
     sections: list[str],
     toc_entries: list[dict[str, str]] | None = None,
     summary_stats: dict[str, Counter] | None = None,
+    document_title: str = DEFAULT_DOCUMENT_TITLE,
 ) -> str:
     dashboard_html = render_summary_dashboard(summary_stats or {})
     toc_html = render_toc(toc_entries or [])
+    toolbar_html = render_screen_toolbar(toc_entries or [])
+
+    # 브라우저 탭에서 구분되도록 프로젝트명을 붙이되,
+    # 제목에 이미 들어 있으면 중복해서 쓰지 않는다.
+    browser_title = (
+        document_title
+        if project.lower() in document_title.lower()
+        else f"{document_title} - {project}"
+    )
 
     return f"""<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>Polarion Query Backup</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{html.escape(browser_title)}</title>
 <style>{DOCUMENT_CSS}</style>
 </head>
 <body>
 
+{toolbar_html}
+
 <section class="cover">
-  <h1>Polarion Work Item Backup</h1>
+  <h1>{html.escape(document_title)}</h1>
   <p><b>Project:</b> {html.escape(project)}</p>
   <p><b>Count:</b> {count}</p>
   <div class="query">
@@ -1553,6 +1954,11 @@ def make_html(
 {toc_html}
 {''.join(sections)}
 
+<div class="filter-empty screen-only filter-hidden" id="wi-empty">
+  검색 조건에 맞는 이슈가 없습니다.
+</div>
+
+<script>{SCREEN_SCRIPT}</script>
 </body>
 </html>
 """
@@ -1563,8 +1969,27 @@ def make_standalone_html(workitem_id: str, title: str, section_html: str) -> str
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{html.escape(workitem_id)} - {html.escape(title)}</title>
 <style>{DOCUMENT_CSS}</style>
+<style>
+/* 이 문서에는 이슈가 1건뿐이라 돌아갈 목차가 없다. */
+.back-to-toc {{
+    display: none;
+}}
+
+@media screen {{
+    .work-item {{
+        margin-top: 0;
+        padding-top: 0;
+        border-top: none;
+    }}
+
+    body {{
+        padding-top: 24px;
+    }}
+}}
+</style>
 </head>
 <body>
 
@@ -1849,9 +2274,10 @@ def make_markdown(
     count: int,
     sections: list[str],
     summary_stats: dict[str, Counter] | None = None,
+    document_title: str = DEFAULT_DOCUMENT_TITLE,
 ) -> str:
     lines = [
-        "# Polarion Work Item Backup",
+        f"# {document_title}",
         "",
         f"- **Project**: {project}",
         f"- **Count**: {count}",
@@ -1932,7 +2358,86 @@ def generate_pdf_from_html(
         raise
 
 
-def prepare_output_directory(output_directory: Path) -> None:
+def format_duration(seconds: float) -> str:
+    total_seconds = max(0, int(seconds))
+
+    if total_seconds < 60:
+        return f"{total_seconds}초"
+
+    minutes, second = divmod(total_seconds, 60)
+
+    if minutes < 60:
+        return f"{minutes}분 {second}초"
+
+    hour, minute = divmod(minutes, 60)
+    return f"{hour}시간 {minute}분"
+
+
+def format_size(byte_count: int) -> str:
+    size = float(byte_count)
+
+    for unit in ("B", "KB", "MB", "GB"):
+        if size < 1024 or unit == "GB":
+            return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+
+        size /= 1024
+
+    return f"{size:.1f} GB"
+
+
+def open_in_default_application(target: Path) -> None:
+    """생성된 결과를 OS 기본 프로그램으로 연다."""
+    try:
+        if sys.platform == "win32":
+            os.startfile(str(target))  # type: ignore[attr-defined]
+        elif sys.platform == "darwin":
+            subprocess.run(["open", str(target)], check=False)
+        else:
+            subprocess.run(["xdg-open", str(target)], check=False)
+    except Exception as exception:
+        print(f"결과 자동 열기 실패 (경로를 직접 열어 주세요): {exception}")
+
+
+def confirm_directory_removal(target: Path) -> bool:
+    """기존 결과 폴더를 지우기 전에 확인한다.
+
+    사람이 직접 실행한 경우에만 묻는다. 예약 실행처럼 입력을 받을 수 없는
+    환경에서는 기존 동작 그대로 경고만 남기고 진행한다.
+    """
+    issue_directories = [
+        entry for entry in target.iterdir() if entry.is_dir()
+    ] if target.is_dir() else []
+
+    if not sys.stdin.isatty():
+        print(f"[경고] 기존 결과 폴더를 지우고 새로 만듭니다: {target}")
+        return True
+
+    print()
+    print(f"[확인] 결과 폴더가 이미 있습니다: {target}")
+
+    if issue_directories:
+        print(
+            f"        안에 이슈 폴더 {len(issue_directories)}개가 있고, "
+            "모두 삭제됩니다."
+        )
+
+    print(
+        "        이전 결과를 남기려면 -o 다른폴더 또는 "
+        "--timestamp 를 사용하세요."
+    )
+
+    try:
+        answer = input("        삭제하고 계속할까요? [y/N] ").strip().lower()
+    except EOFError:
+        return False
+
+    return answer in {"y", "yes"}
+
+
+def prepare_output_directory(
+    output_directory: Path,
+    assume_yes: bool = False,
+) -> None:
     resolved = output_directory.resolve()
 
     forbidden_paths = {
@@ -1947,10 +2452,173 @@ def prepare_output_directory(output_directory: Path) -> None:
         )
 
     if resolved.exists():
+        if not assume_yes and not confirm_directory_removal(resolved):
+            raise RuntimeError(
+                "사용자가 취소했습니다. 기존 결과는 그대로 두었습니다."
+            )
+
         print(f"기존 결과 폴더 삭제: {resolved}")
         shutil.rmtree(resolved)
 
     resolved.mkdir(parents=True, exist_ok=True)
+
+
+def report_check_result(todo: list[str]) -> bool:
+    print("-" * 58)
+
+    if not todo:
+        print("점검 결과: 준비 완료. 바로 실행할 수 있습니다.")
+        return True
+
+    print(f"점검 결과: 해결해야 할 항목 {len(todo)}개")
+
+    for index, item in enumerate(todo, 1):
+        print(f"  {index}. {item}")
+
+    return False
+
+
+def check_pdf_engine(todo: list[str]) -> None:
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        print("  [X ] PDF 엔진: playwright 미설치")
+        todo.append(
+            "python -m pip install -r requirements.txt 를 실행하세요."
+        )
+        return
+
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            browser.close()
+
+        print("  [OK] PDF 엔진(Chromium) 실행 확인")
+    except Exception as exception:
+        if "Executable doesn't exist" in str(exception):
+            print("  [X ] PDF 엔진: Chromium 미설치")
+            todo.append("python -m playwright install chromium 을 실행하세요.")
+            return
+
+        print(f"  [X ] PDF 엔진 오류: {exception}")
+        todo.append(
+            "PDF가 필요 없다면 config.yaml의 output.generate_pdf 를 "
+            "false 로 두어도 됩니다."
+        )
+
+
+def run_environment_check(config_path: Path) -> bool:
+    """Polarion에 접속하기 전에 막힐 만한 지점을 미리 점검한다."""
+    print("실행 환경 점검")
+    print("-" * 58)
+
+    todo: list[str] = []
+
+    if not config_path.is_file():
+        print(f"  [X ] 설정 파일 없음: {config_path.resolve()}")
+        todo.append(
+            "설정 파일을 만드세요:  "
+            f"copy config.example.yaml {config_path.name}"
+        )
+        return report_check_result(todo)
+
+    print(f"  [OK] 설정 파일: {config_path.resolve()}")
+
+    try:
+        config = load_config(config_path)
+    except Exception as exception:
+        print(f"  [X ] 설정 파일을 읽을 수 없습니다: {exception}")
+        todo.append(f"{config_path.name} 의 YAML 문법을 확인하세요.")
+        return report_check_result(todo)
+
+    polarion_config = config.get("polarion") or {}
+    output_config = config.get("output") or {}
+
+    host = str(polarion_config.get("host", "")).strip()
+    project_id = str(polarion_config.get("project_id", "")).strip()
+
+    if not host or host in PLACEHOLDER_CONFIG_VALUES:
+        print(f"  [X ] 서버 주소가 예시값입니다: {host or '(비어 있음)'}")
+        todo.append(
+            f"{config_path.name} 의 polarion.host 에 "
+            "사내 Polarion 주소를 넣으세요."
+        )
+    else:
+        print(f"  [OK] 서버 주소: {host}")
+
+    if not project_id or project_id in PLACEHOLDER_CONFIG_VALUES:
+        print(
+            "  [X ] 프로젝트 ID가 예시값입니다: "
+            f"{project_id or '(비어 있음)'}"
+        )
+        todo.append(
+            f"{config_path.name} 의 polarion.project_id 를 "
+            "사내 프로젝트 ID로 바꾸세요."
+        )
+    else:
+        print(f"  [OK] 프로젝트 ID: {project_id}")
+
+    token_name = str(polarion_config.get("token_env", "POLARION_TOKEN"))
+    token = os.environ.get(token_name, "").strip()
+
+    if token:
+        print(f"  [OK] 환경변수 {token_name}: 설정됨 ({len(token)}자)")
+    else:
+        print(f"  [X ] 환경변수 {token_name}: 없어서 로그인할 수 없습니다")
+        todo.append(
+            f'이번 창에서만:  $env:{token_name}="발급받은 PAT"'
+        )
+        todo.append(
+            f'계속 쓰려면:    setx {token_name} "발급받은 PAT"  '
+            "(새 PowerShell 창부터 적용)"
+        )
+
+    if bool(output_config.get("generate_pdf", True)):
+        check_pdf_engine(todo)
+    else:
+        print("  [--] PDF 생성이 꺼져 있어 Chromium 점검은 건너뜁니다.")
+
+    if not todo:
+        try:
+            client = PolarionClient(config)
+            client.get_json(
+                f"{client.base_api}/projects/"
+                f"{quote(client.project_id, safe='')}"
+            )
+            print("  [OK] Polarion 접속/권한 확인")
+        except Exception as exception:
+            print(f"  [X ] Polarion 접속 실패: {exception}")
+            todo.append(
+                "위 오류 메시지를 보고 주소·PAT·프로젝트 ID를 확인하세요."
+            )
+
+    return report_check_result(todo)
+
+
+def escape_query_value(value: str) -> str:
+    """Polarion(Lucene) 쿼리에서 특별한 뜻을 갖는 문자를 그대로 쓰게 만든다.
+
+    이슈 ID의 '-'가 대표적이다. VP-6955를 그대로 넣으면 '6955를 제외하라'는
+    뜻이 되므로 VP\\-6955로 써야 한다.
+    """
+    return "".join(
+        f"\\{character}" if character in LUCENE_SPECIAL_CHARACTERS else character
+        for character in value
+    )
+
+
+def build_query_from_ids(raw_ids: str) -> str:
+    """'VP-6955, VP-7001' 같은 입력을 Polarion 검색 Query로 바꾼다."""
+    tokens = [
+        token.strip()
+        for token in re.split(r"[,\s]+", raw_ids)
+        if token.strip()
+    ]
+
+    if not tokens:
+        return ""
+
+    return " OR ".join(f"id:{escape_query_value(token)}" for token in tokens)
 
 
 def build_argument_parser() -> argparse.ArgumentParser:
@@ -1962,17 +2630,38 @@ def build_argument_parser() -> argparse.ArgumentParser:
         ),
         epilog=(
             "예시:\n"
+            "  python polarion_query_backup.py -id VP-6955\n"
+            "  python polarion_query_backup.py -id VP-6955,VP-7001 --open\n"
             "  python polarion_query_backup.py "
-            "-query \"id:VP\\-6955\"\n"
-            "  python polarion_query_backup.py "
-            "-q \"id:VP\\-6955 OR id:VP\\-7001\"\n"
+            "-query \"status:(in_progress) AND author.id:(hong)\"\n"
+            "  python polarion_query_backup.py -id VP-6955 -o 결과_6955\n"
+            "  python polarion_query_backup.py --limit 1"
+            "          # 필드 확인용으로 1건만\n"
+            "  python polarion_query_backup.py --check"
+            "            # 실행 전 환경 점검만\n"
             "  python polarion_query_backup.py"
-            "        # config.yaml의 search.query 사용"
+            "                  # config.yaml의 search.query 사용"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 
-    parser.add_argument(
+    target_group = parser.add_argument_group(
+        "검색 대상 (-id 와 -query 중 하나만)"
+    )
+
+    target_group.add_argument(
+        "-id",
+        "--id",
+        dest="issue_ids",
+        default=None,
+        metavar="ID",
+        help=(
+            "이슈 ID를 직접 지정합니다. 쉼표나 공백으로 여러 개를 넣을 수 있고, "
+            "쿼리 문법(\\-)은 자동으로 처리합니다. 예: -id VP-6955,VP-7001"
+        ),
+    )
+
+    target_group.add_argument(
         "-q",
         "-query",
         "--query",
@@ -1985,11 +2674,87 @@ def build_argument_parser() -> argparse.ArgumentParser:
         ),
     )
 
-    parser.add_argument(
+    target_group.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        metavar="N",
+        help=(
+            "이번 실행에만 적용할 최대 건수 "
+            "(설정 파일의 search.max_items 대신 사용). "
+            "필드 매핑을 확인할 때 --limit 1 이 편합니다."
+        ),
+    )
+
+    output_group = parser.add_argument_group("출력")
+
+    output_group.add_argument(
+        "-o",
+        "--out",
+        dest="out",
+        default=None,
+        metavar="PATH",
+        help=(
+            "결과를 저장할 폴더 "
+            "(설정 파일의 output.directory 대신 사용)"
+        ),
+    )
+
+    output_group.add_argument(
+        "--title",
+        dest="document_title",
+        default=None,
+        metavar="TEXT",
+        help=(
+            "결과 문서 맨 위에 찍히는 제목 "
+            "(기본값: config.yaml 의 output.document_title, "
+            f"없으면 \"{DEFAULT_DOCUMENT_TITLE}\")"
+        ),
+    )
+
+    output_group.add_argument(
+        "--timestamp",
+        action="store_true",
+        help=(
+            "결과를 [출력폴더]/20260915_143012/ 처럼 실행 시각 하위 폴더에 "
+            "저장합니다. 이전 결과가 지워지지 않습니다."
+        ),
+    )
+
+    output_group.add_argument(
+        "--open",
+        dest="open_result",
+        action="store_true",
+        help=(
+            "완료 후 결과 문서를 자동으로 엽니다 "
+            "(PDF를 만들었으면 PDF, 아니면 HTML)."
+        ),
+    )
+
+    output_group.add_argument(
+        "-y",
+        "--yes",
+        dest="assume_yes",
+        action="store_true",
+        help="기존 결과 폴더 삭제 확인을 건너뜁니다.",
+    )
+
+    etc_group = parser.add_argument_group("기타")
+
+    etc_group.add_argument(
         "--config",
         default="config.yaml",
         metavar="PATH",
         help="설정 파일 경로 (기본값: config.yaml)",
+    )
+
+    etc_group.add_argument(
+        "--check",
+        action="store_true",
+        help=(
+            "Polarion에 접속하지 않고 설정·토큰·PDF 엔진 준비 상태만 "
+            "점검하고 끝냅니다."
+        ),
     )
 
     return parser
@@ -1997,11 +2762,22 @@ def build_argument_parser() -> argparse.ArgumentParser:
 
 def resolve_query(
     cli_query: str | None,
+    cli_ids: str | None,
     search_config: dict[str, Any],
     config_path: Path,
 ) -> tuple[str, str]:
-    """명령행 인자를 우선하고, 없으면 설정 파일의 search.query를 사용한다."""
+    """-id > -query > 설정 파일 순으로 검색 조건을 정한다."""
     config_source = f"{config_path.name} > search.query"
+
+    if cli_ids is not None:
+        id_query = build_query_from_ids(cli_ids)
+
+        if not id_query:
+            raise RuntimeError(
+                "-id 값이 비어 있습니다. 예: -id VP-6955 또는 -id VP-6955,VP-7001"
+            )
+
+        return id_query, "명령행 -id"
 
     if cli_query is not None:
         return cli_query.strip(), "명령행 -query"
@@ -2019,9 +2795,20 @@ def main() -> None:
 
     config_path = Path(arguments.config)
 
+    if arguments.check:
+        sys.exit(0 if run_environment_check(config_path) else 1)
+
+    if arguments.issue_ids is not None and arguments.query is not None:
+        raise RuntimeError(
+            "-id 와 -query 는 함께 쓸 수 없습니다. 둘 중 하나만 지정하세요."
+        )
+
     if not config_path.is_file():
         raise RuntimeError(
-            f"설정 파일을 찾을 수 없습니다: {config_path.resolve()}"
+            f"설정 파일을 찾을 수 없습니다: {config_path.resolve()}\n"
+            "  다음 명령으로 만든 뒤 사내 환경에 맞게 값을 채우세요.\n"
+            f"    copy config.example.yaml {config_path.name}\n"
+            "  준비 상태 확인:  python polarion_query_backup.py --check"
         )
 
     config = load_config(config_path)
@@ -2032,18 +2819,34 @@ def main() -> None:
 
     query, query_source = resolve_query(
         arguments.query,
+        arguments.issue_ids,
         search_config,
         config_path,
     )
 
     if not query:
         raise RuntimeError(
-            "검색 Query가 비어 있습니다. "
-            "명령행에서 -query \"id:VP\\-6955\" 처럼 직접 지정하거나, "
-            f"{config_path.name}의 search.query를 채우세요."
+            "검색 조건이 비어 있습니다. 아래 중 하나를 쓰세요.\n"
+            "  이슈 ID로:    -id VP-6955\n"
+            '  검색 쿼리로:  -query "status:(in_progress)"\n'
+            f"  설정 파일로:  {config_path.name} 의 search.query 채우기"
         )
 
+    document_title = (
+        arguments.document_title
+        or str(
+            output_config.get(
+                "document_title",
+                DEFAULT_DOCUMENT_TITLE,
+            )
+        ).strip()
+        or DEFAULT_DOCUMENT_TITLE
+    )
+
+    started_at = time.monotonic()
+
     print(f"Query: {query}    (출처: {query_source})")
+    print("Polarion 검색 중...")
 
     client = PolarionClient(config)
 
@@ -2058,19 +2861,41 @@ def main() -> None:
         ),
     )
 
-    max_items = int(search_config.get("max_items", 0))
+    max_items = (
+        arguments.limit
+        if arguments.limit is not None
+        else int(search_config.get("max_items", 0))
+    )
 
     if max_items > 0:
         workitems = workitems[:max_items]
 
+    if not workitems:
+        print(
+            "검색 결과가 0건입니다. 기존 결과 폴더는 그대로 두었습니다.\n"
+            "  Polarion 검색 화면의 Query Pane > Convert to Text 결과를 "
+            "그대로 쓰는 것이 가장 안전합니다."
+        )
+        return
+
+    print(f"검색 결과: {len(workitems)}건")
+
     output_directory = Path(
-        output_config.get(
+        arguments.out
+        if arguments.out
+        else output_config.get(
             "directory",
             "polarion_backup",
         )
-    ).resolve()
+    )
 
-    prepare_output_directory(output_directory)
+    if arguments.timestamp:
+        output_directory = output_directory / time.strftime("%Y%m%d_%H%M%S")
+
+    output_directory = output_directory.resolve()
+
+    prepare_output_directory(output_directory, arguments.assume_yes)
+    print(f"출력 폴더: {output_directory}")
 
     if output_config.get("save_field_inventory", True):
         (
@@ -2126,7 +2951,9 @@ def main() -> None:
             or str(workitem.get("id", "")).rsplit("/", 1)[-1]
         )
 
-        print(f"[{index}/{len(workitems)}] {workitem_id}")
+        item_started = time.monotonic()
+
+        print(f"[{index}/{len(workitems)}] {workitem_id}", flush=True)
 
         anchor = f"wi-{index}"
 
@@ -2331,6 +3158,12 @@ def main() -> None:
                         / filename
                     )
 
+                    print(
+                        f"    첨부 {attachment_index}/{len(attachments_raw)} "
+                        f"내려받는 중: {filename}",
+                        flush=True,
+                    )
+
                     client.download(content_url, target)
 
                     record["status"] = "다운로드 완료"
@@ -2402,6 +3235,7 @@ def main() -> None:
                 attachment_lookup,
                 embed_images,
                 anchor,
+                status_display,
             )
 
             sections.append(section_html)
@@ -2438,6 +3272,23 @@ def main() -> None:
                     )
                 )
 
+            item_elapsed = time.monotonic() - item_started
+            remaining_estimate = (
+                (time.monotonic() - started_at) / index
+                * (len(workitems) - index)
+            )
+
+            print(
+                f"    완료 · 댓글 {len(comments)} · 링크 {len(linked)} · "
+                f"첨부 {len(attachment_records)} · "
+                f"{item_elapsed:.1f}초"
+                + (
+                    f" · 남은 예상 {format_duration(remaining_estimate)}"
+                    if index < len(workitems)
+                    else ""
+                )
+            )
+
         except Exception as exception:
             failures.append(
                 {
@@ -2461,7 +3312,9 @@ def main() -> None:
             )
 
             sections.append(
-                f'<section class="work-item" id="{html.escape(anchor)}">'
+                f'<section class="work-item" id="{html.escape(anchor)}"'
+                ' data-wi-status="실패">'
+                '<a class="back-to-toc screen-only" href="#toc">↑ 목차</a>'
                 f"<h1>{html.escape(workitem_id)} 실패</h1>"
                 f"<pre>{html.escape(str(exception))}</pre>"
                 "</section>"
@@ -2480,6 +3333,8 @@ def main() -> None:
         )
     )
 
+    print("통합 문서 만드는 중...", flush=True)
+
     html_path.write_text(
         make_html(
             client.project_id,
@@ -2488,9 +3343,13 @@ def main() -> None:
             sections,
             toc_entries,
             summary_stats,
+            document_title,
         ),
         encoding="utf-8",
     )
+
+    result_lines: list[str] = []
+    primary_result = html_path
 
     if generate_pdf:
         pdf_path = output_directory / output_config.get(
@@ -2498,17 +3357,23 @@ def main() -> None:
             "polarion_query_backup.pdf",
         )
 
+        print("PDF로 변환하는 중...", flush=True)
+
         try:
             generate_pdf_from_html(
                 html_path,
                 pdf_path,
                 landscape=bool(output_config.get("pdf_landscape", False)),
             )
-            print(f"PDF: {pdf_path.resolve()}")
+            result_lines.append(f"PDF      : {pdf_path.resolve()}")
+            primary_result = pdf_path
         except Exception as exception:
             print(
                 f"PDF 생성 실패 (HTML/Markdown은 정상 생성됨): {exception}"
             )
+            result_lines.append("PDF      : 생성 실패 (위 메시지 참고)")
+
+    result_lines.append(f"HTML     : {html_path.resolve()}")
 
     if generate_markdown:
         md_path = output_directory / output_config.get(
@@ -2523,17 +3388,25 @@ def main() -> None:
                 len(workitems),
                 markdown_sections,
                 summary_stats,
+                document_title,
             ),
             encoding="utf-8",
         )
 
-        print(f"Markdown: {md_path.resolve()}")
+        result_lines.append(f"Markdown : {md_path.resolve()}")
+
+    total_elapsed = time.monotonic() - started_at
 
     manifest = {
+        "documentTitle": document_title,
         "query": query,
+        "querySource": query_source,
         "count": len(workitems),
         "failureCount": len(failures),
         "failures": failures,
+        "outputDirectory": str(output_directory),
+        "elapsedSeconds": round(total_elapsed, 1),
+        "generatedAt": time.strftime("%Y-%m-%d %H:%M:%S"),
     }
 
     (
@@ -2543,11 +3416,30 @@ def main() -> None:
         encoding="utf-8",
     )
 
-    print(f"HTML: {html_path.resolve()}")
+    print()
+    print("-" * 58)
     print(
-        f"총 {len(workitems)}개, "
-        f"실패 {len(failures)}개"
+        f"완료: {len(workitems)}건 (실패 {len(failures)}건) · "
+        f"총 {format_duration(total_elapsed)}"
     )
+
+    for line in result_lines:
+        print(f"  {line}")
+
+    print(f"  폴더     : {output_directory}")
+
+    if failures:
+        print()
+        print(f"  실패한 이슈 {len(failures)}건 (상세: manifest.json)")
+
+        for failure in failures[:5]:
+            print(f"    - {failure['id']}: {failure['error'][:80]}")
+
+        if len(failures) > 5:
+            print(f"    ... 외 {len(failures) - 5}건")
+
+    if arguments.open_result:
+        open_in_default_application(primary_result)
 
 
 if __name__ == "__main__":

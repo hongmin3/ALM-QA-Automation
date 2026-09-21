@@ -24,10 +24,3 @@ Thumbs.db
 .DS_Store
 .akela/
 akela/.cache/
-
-# Local integration evidence, task backups, and private issue documents
-.migration/
-/apps/issue-export/*.pdf
-**/.env
-**/IMPLEMENTATION_LOG.md
-**/config.yaml

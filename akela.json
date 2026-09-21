@@ -9,6 +9,118 @@
   ],
   "learnings": "akela/LEARNINGS.md",
   "runs": ".akela/runs",
-  "activities": ["scheduler-failure", "render-bug", "spec-diff-review", "pipeline-change"],
-  "compiler": {}
+  "activities": [
+    "scheduler-failure",
+    "render-bug",
+    "spec-diff-review",
+    "pipeline-change"
+  ],
+  "compiler": {
+    "scope": {
+      "REF-architecture#pipeline-flow": {
+        "add": [
+          "pipeline-change",
+          "spec-diff-review",
+          "render-bug"
+        ]
+      },
+      "REF-architecture#module-roles": {
+        "add": [
+          "pipeline-change",
+          "render-bug"
+        ]
+      },
+      "REF-architecture#design-principles": {
+        "add": [
+          "pipeline-change",
+          "render-bug",
+          "spec-diff-review"
+        ]
+      },
+      "REF-architecture#output-locations": {
+        "add": [
+          "pipeline-change",
+          "scheduler-failure",
+          "spec-diff-review"
+        ]
+      },
+      "REF-architecture#tech-stack": {
+        "add": [
+          "pipeline-change"
+        ]
+      },
+      "REF-known-issues#render-runaway-bug": {
+        "add": [
+          "render-bug"
+        ]
+      },
+      "REF-scheduler-operations#registered-tasks": {
+        "add": [
+          "scheduler-failure"
+        ]
+      },
+      "REF-scheduler-operations#catchup-rules": {
+        "add": [
+          "scheduler-failure"
+        ]
+      },
+      "REF-scheduler-operations#task-settings": {
+        "add": [
+          "scheduler-failure"
+        ]
+      },
+      "REF-scheduler-operations#auth-s4u": {
+        "add": [
+          "scheduler-failure",
+          "pipeline-change"
+        ]
+      },
+      "REF-scheduler-operations#generation-retention": {
+        "add": [
+          "scheduler-failure",
+          "spec-diff-review"
+        ]
+      },
+      "REF-scheduler-operations#ops-commands": {
+        "add": [
+          "scheduler-failure"
+        ]
+      },
+      "REF-scheduler-operations#common-run-modes": {
+        "add": [
+          "scheduler-failure",
+          "render-bug",
+          "spec-diff-review",
+          "pipeline-change"
+        ]
+      },
+      "REF-troubleshooting#check-order": {
+        "add": [
+          "scheduler-failure",
+          "render-bug",
+          "spec-diff-review"
+        ]
+      },
+      "REF-troubleshooting#useful-rerun-flags": {
+        "add": [
+          "render-bug",
+          "spec-diff-review",
+          "pipeline-change"
+        ]
+      },
+      "REF-troubleshooting#faq": {
+        "add": [
+          "scheduler-failure",
+          "render-bug",
+          "spec-diff-review"
+        ]
+      },
+      "REF-troubleshooting#security-checks": {
+        "add": [
+          "pipeline-change",
+          "scheduler-failure"
+        ]
+      }
+    }
+  }
 }
