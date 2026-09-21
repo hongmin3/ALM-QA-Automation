@@ -49,7 +49,7 @@ def test_invalid_mode_does_not_run_child():
 
 
 def test_help_from_foreign_directory(tmp_path):
-    for arguments in (['--help'], ['srs', '--help'], ['issues', '--help']):
+    for arguments in (['--help'], ['srs', '--help'], ['issues', '--help'], ['observe', '--help']):
         result = subprocess.run(
             [sys.executable, str(ROOT / 'run.py'), *arguments],
             cwd=tmp_path, capture_output=True, text=True,
@@ -90,13 +90,16 @@ def test_powershell_preserves_native_arguments_and_exit_code(tmp_path, arguments
     (['2', '2', 'title:"two words"'], ['issues', '-query', 'title:"two words"', '--timestamp', '--open']),
     (['2', '3'], ['issues', '--timestamp', '--open']),
     (['2', '4'], ['issues', '--check']),
+    (['2', '5'], ['issues', '--check-local']),
+    (['3', '', 'saved/manifest.json'], ['observe', '--issues', 'saved/manifest.json']),
+    (['3', 'current', 'previous', ''], ['observe', '--srs-current', 'current', '--srs-previous', 'previous']),
 ])
 def test_menu_routes(answers, expected):
     with patch('builtins.input', side_effect=answers):
         assert load_launcher().menu_arguments() == expected
 
 
-@pytest.mark.parametrize('answers', [['9'], ['1', '3', '2026-02-30'], ['2', '1', '']])
+@pytest.mark.parametrize('answers', [['9'], ['1', '3', '2026-02-30'], ['2', '1', ''], ['3', '', '']])
 def test_invalid_menu_never_starts_application(answers):
     launcher = load_launcher()
     with patch('builtins.input', side_effect=answers), patch.object(launcher.subprocess, 'call') as call:

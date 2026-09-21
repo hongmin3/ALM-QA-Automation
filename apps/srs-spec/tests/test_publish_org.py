@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import sys
+import pytest
+import shutil
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -107,3 +109,169 @@ def test_missing_knowledge_folder_is_skipped_not_fatal(tmp_path):
     result = archive_and_publish(knowledge_folder=None, generated_pdfs=[], file_date="260824")
     assert result.skipped is True
     assert result.published == []
+
+
+@pytest.mark.parametrize("failure_at", [1, 2, 3, 4, 5])
+def test_copy_failure_preserves_live_and_previous_org(tmp_path, monkeypatch, failure_at):
+    knowledge, pdfs = _setup(
+        tmp_path,
+        {"(사양서) old.pdf": b"old", "(사양서) same.pdf": b"same-old"},
+        ["(사양서) same.pdf", "(사양서) new.pdf"],
+    )
+    org = default_org_folder(knowledge)
+    (org / "260817").mkdir(parents=True)
+    (org / "260817" / "(사양서) archived.pdf").write_bytes(b"archive")
+    original_copy = shutil.copy2
+    calls = 0
+
+    def failing_copy(src, dst, *args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == failure_at:
+            Path(dst).write_bytes(b"partial")
+            raise OSError("synthetic copy failure")
+        return original_copy(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "copy2", failing_copy)
+    with pytest.raises(OSError, match="synthetic copy failure"):
+        archive_and_publish(knowledge_folder=knowledge, generated_pdfs=pdfs, file_date="260824")
+    assert {p.name: p.read_bytes() for p in knowledge.iterdir()} == {
+        "(사양서) old.pdf": b"old", "(사양서) same.pdf": b"same-old",
+    }
+    assert (org / "260817" / "(사양서) archived.pdf").read_bytes() == b"archive"
+
+
+def test_purge_preserves_unrelated_files_and_directories(tmp_path):
+    knowledge, pdfs = _setup(tmp_path, {}, ["(사양서) new.pdf"])
+    org = default_org_folder(knowledge)
+    for folder in ["notes", "260817"]:
+        (org / folder).mkdir(parents=True)
+        (org / folder / "keep.txt").write_text("keep")
+    (org / "notes" / "(사양서) reference.pdf").write_bytes(b"reference")
+    (org / "260817" / "(사양서) old.pdf").write_bytes(b"old")
+    archive_and_publish(knowledge_folder=knowledge, generated_pdfs=pdfs, file_date="260824")
+    assert (org / "notes" / "(사양서) reference.pdf").read_bytes() == b"reference"
+    assert (org / "260817" / "keep.txt").read_text() == "keep"
+    assert not (org / "260817" / "(사양서) old.pdf").exists()
+
+
+def test_empty_publish_does_not_remove_live_generation(tmp_path):
+    knowledge, _ = _setup(tmp_path, {"(사양서) old.pdf": b"old"}, [])
+    with pytest.raises(ValueError, match="PDF"):
+        archive_and_publish(knowledge_folder=knowledge, generated_pdfs=[], file_date="260824")
+    assert (knowledge / "(사양서) old.pdf").read_bytes() == b"old"
+
+
+@pytest.mark.parametrize("operation", ["publish", "remove", "archive"])
+def test_commit_io_failure_rolls_back_and_keeps_org(tmp_path, monkeypatch, operation):
+    knowledge, pdfs = _setup(tmp_path,
+        {"(사양서) old.pdf": b"old", "(사양서) same.pdf": b"same-old"},
+        ["(사양서) same.pdf", "(사양서) new.pdf"])
+    org = default_org_folder(knowledge)
+    archived = org / "260817" / "(사양서) archived.pdf"
+    archived.parent.mkdir(parents=True)
+    archived.write_bytes(b"archive")
+    replace = Path.replace
+    unlink = Path.unlink
+
+    def fail_replace(src, dest):
+        if ((operation == "publish" and src.parent.name == "incoming" and src.name.endswith("new.pdf"))
+                or (operation == "archive" and src.parent.name.startswith(".srs-archive-"))):
+            raise OSError("synthetic commit failure")
+        return replace(src, dest)
+
+    def fail_unlink(path, *args, **kwargs):
+        if operation == "remove" and path == knowledge / "(사양서) old.pdf":
+            raise OSError("synthetic commit failure")
+        return unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "replace", fail_replace)
+    monkeypatch.setattr(Path, "unlink", fail_unlink)
+    with pytest.raises(OSError, match="synthetic commit failure"):
+        archive_and_publish(knowledge_folder=knowledge, generated_pdfs=pdfs, file_date="260824")
+    assert {p.name: p.read_bytes() for p in knowledge.iterdir()} == {
+        "(사양서) old.pdf": b"old", "(사양서) same.pdf": b"same-old"}
+    assert archived.read_bytes() == b"archive"
+    assert not list((org / "260824").glob("*.pdf"))
+
+
+def test_rollback_failure_keeps_recovery_copies(tmp_path, monkeypatch):
+    knowledge, pdfs = _setup(tmp_path, {"(사양서) same.pdf": b"original"},
+                             ["(사양서) same.pdf", "(사양서) new.pdf"])
+    replace = Path.replace
+
+    def fail_replace(src, dest):
+        if src.name.endswith("new.pdf") or src.name == "restore.pdf":
+            raise OSError("synthetic unavailable destination")
+        return replace(src, dest)
+
+    monkeypatch.setattr(Path, "replace", fail_replace)
+    with pytest.raises(OSError):
+        archive_and_publish(knowledge_folder=knowledge, generated_pdfs=pdfs, file_date="260824")
+    recovery = list(knowledge.parent.glob(".srs-publish-*/originals/(사양서) same.pdf"))
+    assert len(recovery) == 1
+    assert recovery[0].read_bytes() == b"original"
+
+
+def test_archive_collision_preserves_all_existing_copies(tmp_path):
+    knowledge, pdfs = _setup(tmp_path, {"(사양서) old.pdf": b"current"}, ["(사양서) new.pdf"])
+    target = default_org_folder(knowledge) / "260824"
+    target.mkdir(parents=True)
+    (target / "(사양서) old.pdf").write_bytes(b"previous")
+    (target / "(사양서) old_dup1.pdf").write_bytes(b"earlier")
+    archive_and_publish(knowledge_folder=knowledge, generated_pdfs=pdfs, file_date="260824")
+    assert sorted(p.read_bytes() for p in target.iterdir()) == [b"current", b"earlier", b"previous"]
+
+
+def test_multiple_archive_names_cannot_overwrite_one_another(tmp_path):
+    knowledge, pdfs = _setup(tmp_path,
+        {"(사양서) old.pdf": b"current", "(사양서) old_dup1.pdf": b"other"},
+        ["(사양서) new.pdf"])
+    target = default_org_folder(knowledge) / "260824"
+    target.mkdir(parents=True)
+    (target / "(사양서) old.pdf").write_bytes(b"previous")
+    archive_and_publish(knowledge_folder=knowledge, generated_pdfs=pdfs, file_date="260824")
+    assert sorted(p.read_bytes() for p in target.iterdir()) == [b"current", b"other", b"previous"]
+
+
+def test_publish_supports_python311_path_api(tmp_path, monkeypatch):
+    knowledge, pdfs = _setup(tmp_path, {}, ["(사양서) new.pdf"])
+    previous = default_org_folder(knowledge) / "260817"
+    previous.mkdir(parents=True)
+    (previous / "(사양서) old.pdf").write_bytes(b"old")
+    monkeypatch.delattr(Path, "is_junction", raising=False)
+    archive_and_publish(knowledge_folder=knowledge, generated_pdfs=pdfs, file_date="260824")
+    assert not previous.exists()
+
+
+def test_unexpected_interruption_preserves_recovery_copies(tmp_path, monkeypatch):
+    knowledge, pdfs = _setup(tmp_path, {"(사양서) same.pdf": b"original"},
+                             ["(사양서) same.pdf", "(사양서) new.pdf"])
+    replace = Path.replace
+
+    def interrupt_replace(src, dest):
+        if src.name.endswith("new.pdf"):
+            raise KeyboardInterrupt()
+        return replace(src, dest)
+
+    monkeypatch.setattr(Path, "replace", interrupt_replace)
+    with pytest.raises(KeyboardInterrupt):
+        archive_and_publish(knowledge_folder=knowledge, generated_pdfs=pdfs, file_date="260824")
+    recovery = list(knowledge.parent.glob(".srs-publish-*/originals/(사양서) same.pdf"))
+    assert recovery and recovery[0].read_bytes() == b"original"
+
+
+def test_purge_listing_failure_does_not_report_committed_publish_as_failed(tmp_path, monkeypatch):
+    knowledge, pdfs = _setup(tmp_path, {"(사양서) old.pdf": b"old"}, ["(사양서) new.pdf"])
+    org = default_org_folder(knowledge)
+    iterdir = Path.iterdir
+
+    def fail_listing(path):
+        if path == org:
+            raise OSError("synthetic cleanup failure")
+        return iterdir(path)
+
+    monkeypatch.setattr(Path, "iterdir", fail_listing)
+    result = archive_and_publish(knowledge_folder=knowledge, generated_pdfs=pdfs, file_date="260824")
+    assert result.published == ["(사양서) new.pdf"]
+    assert (org / "260824" / "(사양서) old.pdf").read_bytes() == b"old"

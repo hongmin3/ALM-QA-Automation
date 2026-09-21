@@ -7,12 +7,13 @@ import json
 import mimetypes
 import os
 import re
-import shutil
 import subprocess
 import sys
 import time
 from collections import Counter
 from pathlib import Path
+from export_run import ExportRun, child_path
+import uuid
 from typing import Any
 from urllib.parse import quote, unquote, urljoin
 
@@ -659,6 +660,7 @@ def embed_images_in_rich_html(
                 content_url = urljoin(client.host, source)
 
         if not content_url:
+            getattr(client, "export_warnings", []).append({"stage": "body-image", "error": "UnresolvedReference"})
             image["alt"] = (
                 image.get("alt")
                 or source
@@ -705,6 +707,7 @@ def embed_images_in_rich_html(
             ]
 
         except Exception as exception:
+            getattr(client, "export_warnings", []).append({"stage": "body-image", "error": type(exception).__name__})
             print(
                 f"  본문 이미지 삽입 실패: {source}\n"
                 f"    원인: {exception}"
@@ -2398,71 +2401,6 @@ def open_in_default_application(target: Path) -> None:
         print(f"결과 자동 열기 실패 (경로를 직접 열어 주세요): {exception}")
 
 
-def confirm_directory_removal(target: Path) -> bool:
-    """기존 결과 폴더를 지우기 전에 확인한다.
-
-    사람이 직접 실행한 경우에만 묻는다. 예약 실행처럼 입력을 받을 수 없는
-    환경에서는 기존 동작 그대로 경고만 남기고 진행한다.
-    """
-    issue_directories = [
-        entry for entry in target.iterdir() if entry.is_dir()
-    ] if target.is_dir() else []
-
-    if not sys.stdin.isatty():
-        print(f"[경고] 기존 결과 폴더를 지우고 새로 만듭니다: {target}")
-        return True
-
-    print()
-    print(f"[확인] 결과 폴더가 이미 있습니다: {target}")
-
-    if issue_directories:
-        print(
-            f"        안에 이슈 폴더 {len(issue_directories)}개가 있고, "
-            "모두 삭제됩니다."
-        )
-
-    print(
-        "        이전 결과를 남기려면 -o 다른폴더 또는 "
-        "--timestamp 를 사용하세요."
-    )
-
-    try:
-        answer = input("        삭제하고 계속할까요? [y/N] ").strip().lower()
-    except EOFError:
-        return False
-
-    return answer in {"y", "yes"}
-
-
-def prepare_output_directory(
-    output_directory: Path,
-    assume_yes: bool = False,
-) -> None:
-    resolved = output_directory.resolve()
-
-    forbidden_paths = {
-        Path.cwd().resolve(),
-        Path.home().resolve(),
-        Path(resolved.anchor).resolve(),
-    }
-
-    if resolved in forbidden_paths:
-        raise RuntimeError(
-            f"안전을 위해 출력 폴더를 삭제할 수 없습니다: {resolved}"
-        )
-
-    if resolved.exists():
-        if not assume_yes and not confirm_directory_removal(resolved):
-            raise RuntimeError(
-                "사용자가 취소했습니다. 기존 결과는 그대로 두었습니다."
-            )
-
-        print(f"기존 결과 폴더 삭제: {resolved}")
-        shutil.rmtree(resolved)
-
-    resolved.mkdir(parents=True, exist_ok=True)
-
-
 def report_check_result(todo: list[str]) -> bool:
     print("-" * 58)
 
@@ -2507,7 +2445,7 @@ def check_pdf_engine(todo: list[str]) -> None:
         )
 
 
-def run_environment_check(config_path: Path) -> bool:
+def run_environment_check(config_path: Path, *, offline: bool = False) -> bool:
     """Polarion에 접속하기 전에 막힐 만한 지점을 미리 점검한다."""
     print("실행 환경 점검")
     print("-" * 58)
@@ -2578,7 +2516,7 @@ def run_environment_check(config_path: Path) -> bool:
     else:
         print("  [--] PDF 생성이 꺼져 있어 Chromium 점검은 건너뜁니다.")
 
-    if not todo:
+    if not todo and not offline:
         try:
             client = PolarionClient(config)
             client.get_json(
@@ -2736,7 +2674,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
         "--yes",
         dest="assume_yes",
         action="store_true",
-        help="기존 결과 폴더 삭제 확인을 건너뜁니다.",
+        help="Compatibility option; previous successful output is preserved in a backup.",
     )
 
     etc_group = parser.add_argument_group("기타")
@@ -2752,11 +2690,12 @@ def build_argument_parser() -> argparse.ArgumentParser:
         "--check",
         action="store_true",
         help=(
-            "Polarion에 접속하지 않고 설정·토큰·PDF 엔진 준비 상태만 "
-            "점검하고 끝냅니다."
+            "설정·토큰·PDF 엔진과 Polarion 서버 접속을 점검합니다. "
+            "서버 접속 없는 점검은 --check-local을 사용하세요."
         ),
     )
 
+    etc_group.add_argument("--check-local", action="store_true", help="Check local configuration and PDF engine without server access")
     return parser
 
 
@@ -2790,32 +2729,43 @@ def resolve_query(
     return str(config_query).strip(), config_source
 
 
-def main() -> None:
+def main() -> int:
     arguments = build_argument_parser().parse_args()
-
     config_path = Path(arguments.config)
-
-    if arguments.check:
-        sys.exit(0 if run_environment_check(config_path) else 1)
-
+    if arguments.check or arguments.check_local:
+        return 0 if run_environment_check(config_path, offline=arguments.check_local) else 1
     if arguments.issue_ids is not None and arguments.query is not None:
-        raise RuntimeError(
-            "-id 와 -query 는 함께 쓸 수 없습니다. 둘 중 하나만 지정하세요."
-        )
-
-    if not config_path.is_file():
-        raise RuntimeError(
-            f"설정 파일을 찾을 수 없습니다: {config_path.resolve()}\n"
-            "  다음 명령으로 만든 뒤 사내 환경에 맞게 값을 채우세요.\n"
-            f"    copy config.example.yaml {config_path.name}\n"
-            "  준비 상태 확인:  python polarion_query_backup.py --check"
-        )
-
+        raise ValueError("-id and -query cannot be combined")
     config = load_config(config_path)
+    target = Path(arguments.out or config["output"].get("directory", "polarion_backup"))
+    if arguments.timestamp:
+        target = target / (time.strftime("%Y%m%d_%H%M%S") + "-" + uuid.uuid4().hex[:8])
+    try:
+        with ExportRun(target) as run:
+            return _execute_export(arguments, config_path, config, run)
+    except (OSError, RuntimeError, ValueError) as exc:
+        print(f"Export failed ({type(exc).__name__}). Previous output preserved.", file=sys.stderr)
+        return 1
 
+
+def _execute_export(arguments, config_path, config, run) -> int:
     search_config = config["search"]
     fields_config = config["fields"]
     output_config = config["output"]
+
+    # Check names before rendering so no artifact can overwrite another.
+    artifact_names = {"manifest.json", "manifest.json.tmp", "field_inventory.json"}
+    for key, default, enabled in (
+        ("html_filename", "polarion_query_backup.html", True),
+        ("pdf_filename", "polarion_query_backup.pdf", output_config.get("generate_pdf", True)),
+        ("md_filename", "polarion_query_backup.md", output_config.get("generate_markdown", True)),
+    ):
+        if not enabled:
+            continue
+        name = str(output_config.get(key, default))
+        if not name or name != safe_filename(name) or name.casefold() in artifact_names:
+            raise ValueError("Output filenames must be distinct, safe filenames; reserved names are not allowed")
+        artifact_names.add(name.casefold())
 
     query, query_source = resolve_query(
         arguments.query,
@@ -2867,35 +2817,31 @@ def main() -> None:
         else int(search_config.get("max_items", 0))
     )
 
-    if max_items > 0:
-        workitems = workitems[:max_items]
-
-    if not workitems:
-        print(
-            "검색 결과가 0건입니다. 기존 결과 폴더는 그대로 두었습니다.\n"
-            "  Polarion 검색 화면의 Query Pane > Convert to Text 결과를 "
-            "그대로 쓰는 것이 가장 안전합니다."
-        )
-        return
-
-    print(f"검색 결과: {len(workitems)}건")
-
-    output_directory = Path(
-        arguments.out
-        if arguments.out
-        else output_config.get(
-            "directory",
-            "polarion_backup",
-        )
-    )
-
-    if arguments.timestamp:
-        output_directory = output_directory / time.strftime("%Y%m%d_%H%M%S")
-
-    output_directory = output_directory.resolve()
-
-    prepare_output_directory(output_directory, arguments.assume_yes)
-    print(f"출력 폴더: {output_directory}")
+    if max_items < 0:
+        raise ValueError("--limit must not be negative")
+    searched_count = len(workitems)
+    unique_items = []
+    seen_ids = set()
+    duplicate_ids = []
+    missing_id_count = 0
+    for workitem in workitems:
+        wid = str(attrs(workitem).get("id") or str(workitem.get("id", "")).rsplit("/", 1)[-1])
+        if not wid:
+            missing_id_count += 1
+        elif wid in seen_ids:
+            duplicate_ids.append(wid)
+        else:
+            seen_ids.add(wid)
+            unique_items.append(workitem)
+    limited = max_items > 0 and max_items < len(unique_items)
+    workitems = unique_items[:max_items] if max_items > 0 else unique_items
+    item_names = [safe_filename(str(attrs(w).get("id") or str(w.get("id", "")).rsplit("/", 1)[-1])).casefold() for w in workitems]
+    if len(set(item_names)) != len(item_names) or set(item_names) & artifact_names:
+        raise ValueError("Issue directory names collide")
+    run.details.update(searchedCount=searched_count, selectedCount=len(workitems),
+                       limited=limited, duplicateIds=sorted(set(duplicate_ids)), missingIdCount=missing_id_count)
+    print(f"Search: {searched_count}; selected: {len(workitems)}; run: {run.run_id}")
+    output_directory = run.stage
 
     if output_config.get("save_field_inventory", True):
         (
@@ -2909,6 +2855,9 @@ def main() -> None:
     markdown_sections: list[str] = []
     toc_entries: list[dict[str, str]] = []
     failures: list[dict[str, str]] = []
+    warnings: list[dict[str, str]] = []
+    client.export_warnings = warnings
+    run.details.update(warnings=warnings, failures=failures)
     summary_stats = compute_summary_stats(workitems)
 
     generate_markdown = bool(output_config.get("generate_markdown", True))
@@ -3020,9 +2969,8 @@ def main() -> None:
                             )
                         )
                     except Exception as linked_error:
-                        linked_item["target_error"] = str(
-                            linked_error
-                        )
+                        linked_item["target_error"] = str(linked_error)
+                        warnings.append({"id": workitem_id, "kind": "linked_item_failed"})
 
             attachment_lookup = build_attachment_lookup(
                 attachments_raw
@@ -3106,7 +3054,7 @@ def main() -> None:
 
                         try:
                             target = (
-                                workitem_directory / "attachments" / filename
+                                child_path(workitem_directory / "attachments", filename)
                             )
                             target.parent.mkdir(parents=True, exist_ok=True)
                             target.write_bytes(binary)
@@ -3114,11 +3062,13 @@ def main() -> None:
                                 output_directory
                             ).as_posix()
                         except Exception as save_error:
+                            warnings.append({"id": workitem_id, "kind": "image_save_failed"})
                             print(
                                 f"  이미지 파일 저장 실패: {filename}\n"
                                 f"    원인: {save_error}"
                             )
                     else:
+                        warnings.append({"id": workitem_id, "kind": "image_fetch_failed"})
                         record["status"] = "이미지 삽입 실패"
 
                     attachment_records.append(record)
@@ -3144,6 +3094,7 @@ def main() -> None:
                     continue
 
                 if not content_url:
+                    warnings.append({"id": workitem_id, "kind": "attachment_link_missing"})
                     record["status"] = "content 링크 없음"
                     attachment_records.append(record)
                     print(
@@ -3152,11 +3103,7 @@ def main() -> None:
                     continue
 
                 try:
-                    target = (
-                        workitem_directory
-                        / "attachments"
-                        / filename
-                    )
+                    target = child_path(workitem_directory / "attachments", filename)
 
                     print(
                         f"    첨부 {attachment_index}/{len(attachments_raw)} "
@@ -3174,6 +3121,7 @@ def main() -> None:
                     )
 
                 except Exception as attachment_error:
+                    warnings.append({"id": workitem_id, "kind": "attachment_download_failed"})
                     record["status"] = "다운로드 실패"
                     record["error"] = str(attachment_error)
 
@@ -3325,15 +3273,9 @@ def main() -> None:
                     f"## {workitem_id} — 처리 실패\n\n{exception}"
                 )
 
-    html_path = (
-        output_directory
-        / output_config.get(
-            "html_filename",
-            "polarion_query_backup.html",
-        )
-    )
-
-    print("통합 문서 만드는 중...", flush=True)
+    run.details.update(successCount=len(workitems) - len(failures), failureCount=len(failures))
+    html_path = child_path(output_directory, str(output_config.get("html_filename", "polarion_query_backup.html")))
+    print("Building documents...", flush=True)
 
     html_path.write_text(
         make_html(
@@ -3350,12 +3292,10 @@ def main() -> None:
 
     result_lines: list[str] = []
     primary_result = html_path
+    pdf_status = "SKIPPED"
 
-    if generate_pdf:
-        pdf_path = output_directory / output_config.get(
-            "pdf_filename",
-            "polarion_query_backup.pdf",
-        )
+    if generate_pdf and workitems:
+        pdf_path = child_path(output_directory, str(output_config.get("pdf_filename", "polarion_query_backup.pdf")))
 
         print("PDF로 변환하는 중...", flush=True)
 
@@ -3366,20 +3306,22 @@ def main() -> None:
                 landscape=bool(output_config.get("pdf_landscape", False)),
             )
             result_lines.append(f"PDF      : {pdf_path.resolve()}")
+            if not pdf_path.is_file() or pdf_path.stat().st_size == 0:
+                raise RuntimeError("PDF output is missing or empty")
             primary_result = pdf_path
+            pdf_status = "SUCCESS"
         except Exception as exception:
+            pdf_status = "FAILED"
             print(
                 f"PDF 생성 실패 (HTML/Markdown은 정상 생성됨): {exception}"
             )
             result_lines.append("PDF      : 생성 실패 (위 메시지 참고)")
 
+    run.details["pdfStatus"] = pdf_status
     result_lines.append(f"HTML     : {html_path.resolve()}")
 
     if generate_markdown:
-        md_path = output_directory / output_config.get(
-            "md_filename",
-            "polarion_query_backup.md",
-        )
+        md_path = child_path(output_directory, str(output_config.get("md_filename", "polarion_query_backup.md")))
 
         md_path.write_text(
             make_markdown(
@@ -3397,25 +3339,22 @@ def main() -> None:
 
     total_elapsed = time.monotonic() - started_at
 
+    success_count = len(workitems) - len(failures)
+    incomplete = bool(failures or warnings or limited or duplicate_ids or missing_id_count or pdf_status == "FAILED")
+    status = "FAILED" if (workitems and success_count == 0) or (searched_count and not workitems) else ("PARTIAL" if incomplete else "SUCCESS")
     manifest = {
-        "documentTitle": document_title,
-        "query": query,
-        "querySource": query_source,
-        "count": len(workitems),
-        "failureCount": len(failures),
-        "failures": failures,
-        "outputDirectory": str(output_directory),
+        "status": status, "projectId": client.project_id,
+        "documentTitle": document_title, "query": query, "querySource": query_source,
+        "count": len(workitems), "searchedCount": searched_count, "selectedCount": len(workitems),
+        "successCount": success_count, "failureCount": len(failures), "failures": failures,
+        "limited": limited, "duplicateIds": sorted(set(duplicate_ids)), "missingIdCount": missing_id_count,
+        "warnings": warnings, "pdfStatus": pdf_status,
         "elapsedSeconds": round(total_elapsed, 1),
-        "generatedAt": time.strftime("%Y-%m-%d %H:%M:%S"),
     }
-
-    (
-        output_directory / "manifest.json"
-    ).write_text(
-        pretty(manifest),
-        encoding="utf-8",
-    )
-
+    primary_relative = primary_result.relative_to(output_directory)
+    output_directory = run.finish(manifest)
+    primary_result = output_directory / primary_relative
+    print(f"Result: {status}")
     print()
     print("-" * 58)
     print(
@@ -3424,7 +3363,7 @@ def main() -> None:
     )
 
     for line in result_lines:
-        print(f"  {line}")
+        print("  " + line.replace(str(run.stage), str(output_directory)))
 
     print(f"  폴더     : {output_directory}")
 
@@ -3439,12 +3378,16 @@ def main() -> None:
             print(f"    ... 외 {len(failures) - 5}건")
 
     if arguments.open_result:
-        open_in_default_application(primary_result)
+        try:
+            open_in_default_application(primary_result)
+        except OSError:
+            print("문서 자동 열기에 실패했습니다. 출력 폴더에서 직접 열어 주세요.")
+    return {"SUCCESS": 0, "PARTIAL": 4, "FAILED": 1}[status]
 
 
 if __name__ == "__main__":
     try:
-        main()
+        sys.exit(main())
     except KeyboardInterrupt:
         sys.exit(130)
     except Exception as exception:

@@ -431,6 +431,12 @@ def _run_pipeline(config, args, logger, run_date: str, file_date: str) -> int:
             pdf_results=pdf_results,
             expected_pdf_count=len(groups),
             partition_warnings=partition_warnings,
+            assigned_records=[record for group in groups for record in group.records],
+            required_pdf_names=[build_pdf_filename(config.filename_prefix, group.display_name, file_date)
+                                for group in groups if group.records],
+            previous_srs_count=len(previous_by_uid) if previous_date else None,
+            min_expected_srs_ratio=config.min_expected_srs_ratio,
+            require_all_pdfs=config.require_all_pdfs,
         )
 
         publish_result = PublishResult(skipped=True)

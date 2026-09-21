@@ -4,10 +4,10 @@
 
 | 항목 | 값 |
 |---|---|
-| Document Version | 1.0.0 |
+| Document Version | 1.1.0 |
 | Project Version | 통합 기준 커밋 65f79cb (별도 제품 버전 미지정) |
 | Last Updated | 2026-09-21 |
-| Status | baseline — 구현·검증 범위와 알려진 불일치를 분리한 최초 사양 |
+| Status | implemented — 로컬 관찰 및 신뢰성 보강; 운영 검증 별도 |
 | Owner | 프로젝트 운영자 |
 
 이 문서는 프로그램의 올바른 동작 기준이다. 향후 완전 자동화는 현재 제공 기능과 구분한다. 발견된 결함을 정상 사양으로 정당화하지 않는다. 워크스페이스 기준은 [automation-workspace의 사양 기반 개발 규칙](https://github.com/hongmin3/automation-workspace/blob/main/AGENTS.md)이며, 작업 절차는 `AGENTS.md`를 따른다.
@@ -24,12 +24,13 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 - SRS 수집·서식 정규화·스냅샷·안정적 분할·PDF·변경 비교·검증 후 배포.
 - 주간 사양서 예약 실행, 부팅 시 만회 판단, 중복 실행 잠금, 설정된 결과 메일.
 - 이슈 ID/검색어 기반 수집, 연결 항목·댓글·첨부 처리와 문서 출력.
+- 저장 결과 기반 관찰 분석과 후보 검토 상태 저장(알림 없음).
 - 운영 설정과 원문 데이터의 Git 제외, 요구사항·코드·테스트 추적.
 
 ### 제외
 
 - 두 앱 설정 스키마와 모든 수집·렌더링 함수의 즉시 단일화.
-- 이슈 자동 예약 수집, SRS·이슈 연계 검토 후보, 검토 상태 저장, 통합 알림 재시도.
+- 이슈 자동 예약 수집, SRS·이슈 상호 연계 분석, 통합 알림 재시도.
 - AI API 호출, 이슈 자동 수정, 서버 데이터 변경, 자동 검토 승인.
 - 실제 환경을 검사하지 않고 무결점 운영 또는 메일 도착을 보장하는 행위.
 
@@ -47,7 +48,7 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 
 ## 4. 전체 동작 흐름
 
-1. 메뉴 또는 CLI에서 `srs`/`issues` 기능과 인자를 받는다.
+1. 메뉴 또는 CLI에서 `srs`/`issues`/`observe` 기능과 인자를 받는다.
 2. 모드·메뉴 입력을 확인하고 현재 Python 실행기로 해당 앱을 앱 디렉터리에서 시작한다.
 3. SRS: 설정·인증 → 실행 잠금/만회 판단 → 조회 또는 기존 스냅샷 → 분할·PDF → 이전 스냅샷과 비교 → 검증 → 허용된 경우 배포 → 실행 기록·선택적 알림.
 4. 기간 리포트는 서버의 수정 항목 조회와 보관 스냅샷을 사용하며 PDF·배포·메일·주간 마커를 변경하지 않는다.
@@ -116,7 +117,7 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 - 목적: 검증 실패가 기존 배포 사양서를 교체하지 않도록 한다.
 - 입력: 수집 통계, 항목 ID, 생성 PDF, 배포 대상 및 실행 옵션.
 - 선행 조건: 배포 대상은 운영 설정으로 결정하며 실제 값은 문서에 포함하지 않는다.
-- 동작: 수집 기대 건수 일치, ID 중복·누락, PDF 수·크기·페이지를 검사한다. 통과한 PDF만 배포하고 직전 세대를 ORG에 보관한다. 기존 ORG 정리는 검증 통과 후 배포 시작 단계에 수행된다. 모든 수집 항목은 문서 배정 대상에 포함되어야 하며 배포 실패 시 복구 가능한 사본이 남아야 한다(9절 미충족 항목 참조).
+- 동작: 수집 기대 건수 일치, ID 중복·누락, PDF 수·크기·페이지를 검사한다. 통과한 PDF만 배포하고 직전 세대를 ORG에 보관한다. 기존 ORG 정리는 신규 배포 성공 후 수행된다. 모든 수집 항목은 문서 배정 대상에 포함되어야 하며 배포 실패 시 복구 가능한 사본이 남아야 한다(처리 가능한 I/O 오류 시 롤백; 강제 종료 시 수동 복구 사본 보존).
 - 기대 결과: 검증 실패 시 배포 생략. `--dry-run`은 배포와 주간 마커 갱신 생략; `--export-only`는 저장 스냅샷으로 재생성; `--diff-only`는 변경 리포트만 작성; `--crawl-only`는 수집·스냅샷까지만 수행.
 - 예외 처리: 이미지 실패와 그룹 매핑 경고는 현재 경고 정책이며 필수 실패 여부는 13절 확인 사항이다. 배포 대상이 비어 있으면 배포를 건너뛴다.
 - 관련 구현: `apps/srs-spec/main.py`, `apps/srs-spec/src/validate.py`, `apps/srs-spec/src/publish.py`.
@@ -151,7 +152,7 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 - 선행 조건: 출력 디렉터리 쓰기 권한; PDF는 Chromium 필요.
 - 동작: 통합 HTML과 선택적 Markdown/PDF, 항목별 HTML 및 첨부를 만든다. 화면 문서에는 요약·목차·항목 정보를 제공한다. `--timestamp`는 실행 시각별 디렉터리를 선택한다.
 - 기대 결과: PDF 실패가 이미 생성된 HTML/Markdown까지 없애지 않는다. 메뉴 실행은 이전 산출물을 보존한다.
-- 예외 처리: 직접 CLI에서 timestamp 미사용 시 기존 출력 폴더 삭제 동작이 있으므로 삭제 확인/출력 경로 보호를 따른다. 비대화형 자동화의 원자적 교체·동시 실행 보장은 아직 제공하지 않는다.
+- 예외 처리: 모든 실행은 잠금·임시 폴더를 사용한다. 성공 시 기존 출력은 previous 폴더로 보존하고, 부분/실패 결과는 failed 폴더에 격리한다. 운영 디렉터리와 Git 메타데이터를 출력으로 지정할 수 없다.
 - 관련 구현: `apps/issue-export/polarion_query_backup.py`, `run.py`.
 - 관련 테스트: TEST-ISSUE-001, TEST-OPS-001. PDF 변환 검증은 전체 이슈 수집 성공 증거가 아니다.
 
@@ -162,15 +163,31 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 - 선행 조건: 필수 산출물과 경고 허용 정책이 정의되어 있다.
 - 동작: 실패 단계와 누락을 확인할 수 있어야 하며, 필수 결과 실패는 완전 성공으로 전달하지 않아야 한다. 알림 실패는 이미 완료된 배포를 되돌리지 않아야 한다.
 - 기대 결과: 수집 성공과 알림 성공을 분리해 해석할 수 있다. SRS 결과 메일은 설정 시에만 발송한다.
-- 예외 처리: 현재 이슈 부분/PDF 실패의 정상 종료, manifest 상태 부족, SRS 조기 예외 알림 누락이 있어 이 요구사항은 미충족이다. 문서로 정당화하지 않고 9절 불일치로 관리한다.
+- 예외 처리: 이슈 상태는 REQ-OPS-002로 보강했다. SRS 조기 예외 알림 누락은 남아 있어 통합 알림 요구사항은 미충족이다. 문서로 정당화하지 않고 9절 불일치로 관리한다.
 - 관련 구현: `apps/issue-export/polarion_query_backup.py`, `apps/srs-spec/main.py`, `apps/srs-spec/src/notify.py`.
 - 관련 테스트: TEST-OPS-002 (미구현 검증 계획).
+
+### REQ-OPS-002 — 이슈 실행 결과와 안전한 결과 확정
+
+- 입력: 이슈 검색 결과, 출력 경로, 필수 출력 설정.
+- 동작: 실행별 고유 ID와 잠금을 사용하고 새 임시 디렉터리에서 처리한다. 기존 출력은 전체 성공 후에만 새 결과로 교체한다. 실패/부분 결과와 0건 실행도 독립 manifest를 남긴다.
+- 기대 결과: SUCCESS/PARTIAL/FAILED, 검색·선택·성공·실패 건수, 제한 여부, 중복/빈 ID, PDF 상태가 남는다. 부분 성공은 종료 코드 4, 실패는 1, 정상은 0이다. 0건 정상 결과는 유효한 최신 결과로 남되 이전 성공본은 백업으로 보존한다.
+- 예외 처리: 실패한 실행은 이전 결과를 대체하지 않는다. 동시 출력 갱신은 잠금으로 차단한다. 예외/중단의 실행 폴더는 진단을 위해 보존한다.
+- 관련 구현: `apps/issue-export/polarion_query_backup.py`, `apps/issue-export/export_run.py`. 관련 테스트: TEST-OPS-004.
+
+### REQ-OBS-001 — 알림 없는 관찰 분석
+
+- 입력: 명시적으로 지정한 SRS 스냅샷과 이슈 실행 결과, 선택적 이전 SRS 스냅샷, 관찰 상태 저장 경로.
+- 동작: 저장된 수집 결과를 분석하여 신규·변경 후보와 근거를 저장하고 동일 항목/변경 버전은 중복 생성하지 않는다. 불완전한 이슈 manifest나 손상된 입력을 완전 수집으로 간주하지 않는다.
+- 기대 결과: 관찰 실행 결과와 후보 목록, 후보 처리 상태가 로컬에 남는다. 네트워크·배포·알림 발송은 하지 않는다. 첫 실행은 기준선으로 명시한다.
+- 예외 처리: 입력 오류는 비정상 종료하고 기존 관찰 상태를 훼손하지 않는다. 부분 수집을 근거로 삭제 후보를 만들지 않는다.
+- 관련 구현: `observation.py`, `run.py`. 관련 테스트: TEST-OBS-001. 자동 예약과 실제 발송은 이번 단계에서 제외한다.
 
 ## 6. 비기능 요구사항
 
 ### NFR-OPS-001 — 기존 기능·데이터·이력 보존
 
-통합으로 앱 내부 소스 의미와 설정 형식을 임의 변경하지 않아야 한다. 두 Git 이력을 보존하고 데이터 복사 무결성을 확인한다. 실제 운영 확인 전 원본과 복구 자료를 보존한다. 관련 검증은 TEST-OPS-003이다.
+통합으로 앱 내부 소스 의미와 설정 형식을 임의 변경하지 않아야 한다. 두 Git 이력을 보존하고 데이터 복사 무결성을 확인한다. 실제 운영 확인 전 원본 또는 전 파일 검증한 복구 백업을 보존한다. 관련 검증은 TEST-OPS-003이다.
 
 ### NFR-SEC-001 — 비밀값과 운영 데이터 분리
 
@@ -184,9 +201,9 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 | SRS 생성물 | `output/<date>/html/`, `pdf/`, `reports/` | 중간 HTML, 최종 PDF, 변경 리포트 |
 | 렌더 문제 상태 | `snapshots/render_problem_state.json` | 본문·파이프라인 해시 기반 캐시 |
 | 실행 상태 | `logs/last_run.json`, 실행 잠금 및 일별 로그 | ISO 주·실행일·성공 여부; 운영 파일 |
-| 이전 배포본 | 설정된 ORG 경로 | 직전 세대 보존, 다음 검증 통과 후 배포 시작 단계에서 기존 세대 정리; I/O 실패 원자성 미보장 |
+| 이전 배포본 | 설정된 ORG 경로 | 직전 세대 보존, 배포 성공 후 이전 ORG 정리; 처리 가능한 I/O 오류 롤백 |
 | 이슈 생성물 | `polarion_backup/` 또는 지정 경로 | 통합 문서, 항목별 JSON/첨부, 필드 목록, manifest |
-| 이슈 메뉴 실행 | 출력 기준 경로의 timestamp 하위 | 이전 결과 보존; 초 단위 충돌 가능성은 개선 대상 |
+| 이슈 메뉴 실행 | 출력 기준 경로의 timestamp 하위 | 이전 결과 보존; 실행 시각 + UUID로 충돌 방지 |
 
 설정으로 경로가 바뀔 수 있다. 원본 서버·계정·실사용 쿼리·수신자는 문서에 적지 않는다. 이슈 manifest는 현재 PDF 성공/수집 완전성의 충분한 증거가 아니다.
 
@@ -206,7 +223,7 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 | 이슈 출력 | `output.generate_pdf`, `generate_markdown`, `generate_per_issue_html` | 예시 모두 true; CLI 출력 경로·제목은 실행 시 덮어씀 |
 | 건수 제한 | 이슈 `search.max_items`, CLI `--limit` | 설정 0은 무제한; 제한 여부를 전체 성공과 구분해야 함 |
 | 메일 | SRS `mail` 및 SMTP 환경변수 | 예시 enabled=false; 필요할 때만 운영자가 활성화 |
-| SRS 검증 옵션 | `validation.min_expected_srs_ratio`, `require_all_pdfs` | 예시 0.95 / true; 현재 실행 검사 연결 불일치는 9절 참조 |
+| SRS 검증 옵션 | `validation.min_expected_srs_ratio`, `require_all_pdfs` | 예시 0.95 / true; 직전 스냅샷 대비 감소 검사, false는 빈 그룹만 생략 허용 |
 
 새 공통 설정 파일이나 새 알림 채널을 이번 통합으로 도입하지 않는다. CLI 상세는 앱별 `--help`와 README를 참조한다.
 
@@ -219,29 +236,15 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 - `issues --check`는 서버 프로젝트 조회까지 수행한다. 오프라인 점검으로 안내하면 안 된다.
 - 사용자 승인 없이 기존 실패 재실행 정책을 변경하거나 새 자동 알림을 활성화하지 않는다.
 
-### SPEC / CODE MISMATCH — 실행 결과
+### 보완 완료와 남은 제한
 
-- Requirement: REQ-OPS-001
-- Specification: 필수 출력 실패와 불완전 수집은 완전 성공과 구분되어야 한다.
-- Current Implementation: 이슈별/PDF 실패 후 정상 반환할 수 있고 PDF 상태·제한 수집 정보가 manifest에 충분히 기록되지 않는다. SRS 조기 예외는 결과 알림 블록을 건너뛸 수 있다.
-- Difference: 종료 코드/manifest/알림만으로 완전 성공을 신뢰할 수 없다.
-- Action: CODE 수정 대상. 이번 문서 보완에서 구현하지 않음. TEST-OPS-002로 검증할 계획.
-
-### SPEC / CODE MISMATCH — 설정과 점검 안내
-
-- Requirement: REQ-SRS-004, REQ-CORE-002
-- Specification: 지원한다고 안내한 설정은 검사에 연결되어야 하며 점검의 네트워크 부작용을 정확히 안내해야 한다.
-- Current Implementation: SRS 로더가 읽는 `min_expected_srs_ratio`와 `require_all_pdfs`가 `validate_run` 호출에 전달되지 않는다. 기존 이슈 앱 도움말/래퍼의 오프라인 표현과 `run_environment_check`의 서버 조회가 다르다.
-- Difference: 일부 설정/안내가 실제 동작과 일치하지 않는다. 통합 README는 서버 조회를 안내하지만 기존 앱 문구는 남아 있다.
-- Action: CODE/안내 수정 대상. 경고를 없애려고 올바른 사양을 변경하지 않음.
-
-### SPEC / CODE MISMATCH — 문서 반영 완전성과 배포 복구
-
-- Requirement: REQ-SRS-004
-- Specification: 수집된 모든 대상은 문서에 배정되어야 하며 배포 실패 후 복구 가능한 사본이 남아야 한다.
-- Current Implementation: 분할 설정에 없는 프로젝트는 경고 후 생략될 수 있으나 전체 수집 ID와 배정 ID를 대조하지 않는다. 배포 함수는 기존 ORG를 먼저 정리하고 파일을 이동·복사한다.
-- Difference: 수집 건수 검사 통과가 모든 항목의 PDF 반영을 보장하지 않는다. 이동·복사 중 I/O 실패에서 원자적 보존이 보장되지 않는다.
-- Action: CODE 수정 대상. 배정 ID 대조와 중간 실패 주입 검증을 TEST-SRS-004의 후속 검증으로 추가해야 한다. 이번 문서 작업에서 운영 로직을 변경하지 않음.
+- REQ-OPS-002: 이슈별/PDF/이미지 실패, 제한·중복·0건, 동시 실행과 출력 보존을 구현하고 TEST-OPS-004로 검증한다. searchedCount는 API가 반환한 목록 크기이며 서버 전체 건수의 독립 증명은 아니다.
+- REQ-SRS-004: 수집/배정 UID 다중집합 대조, 이전 건수 대비 최소 비율, 필수 PDF 정책을 검사에 연결했다. 배포 원본을 먼저 보관하고 처리 가능한 I/O 오류 시 복구하며 성공 후 ORG를 정리한다.
+- REQ-CORE-002: `--check`는 서버 조회 포함, `--check-local`은 로컬 설정/PDF 엔진 점검이다.
+- REQ-OPS-001의 미충족 부분: SRS 조기 예외는 메일 블록을 건너뛸 수 있다. 알림 대기함·재시도는 후속 과제다.
+- SRS는 파일별 교체이므로 강제 종료/전원 장애에 대한 세대 단위 원자성이나 자동 복구를 보장하지 않는다. 남은 `.srs-publish-*` 복구 사본은 수동 확인한다.
+- 이슈 출력도 두 rename 사이 프로세스 강제 종료 시 previous/staging 수동 복구가 필요하다. 새 결과 성공 확정 전 기존 자료를 삭제하지 않는다.
+- 관찰 분석은 입력 누락을 삭제로 추정하지 않고 SRS/이슈 간 의미적 연계나 우선순위 판정은 수행하지 않는다.
 
 ## 10. 보안 요구사항
 
@@ -283,7 +286,7 @@ PAT와 SMTP 자격증명은 환경변수 또는 Git 제외 운영 설정에서�
 - 검증 대상: REQ-SRS-004.
 - 선행 조건: 임시 출력/배포 폴더, 합성 수집·PDF 결과.
 - 절차: `apps/srs-spec/tests/test_validate.py`, `apps/srs-spec/tests/test_publish_org.py` 실행.
-- Expected Result: 건수/빈 PDF 실패 검출, 정상 결과 통과, ORG 세대 교체 정책 유지. CLI 전체 단계 결합과 실제 배포는 별도 운영 검증. 분할에서 생략된 ID 대조 및 배포 중 I/O 실패 복구 테스트는 아직 없으며 9절 불일치의 후속 검증이다.
+- Expected Result: 건수/빈 PDF 실패 검출, 정상 결과 통과, ORG 세대 교체 정책 유지. CLI 전체 단계 결합과 실제 배포는 별도 운영 검증. 분할 누락/중복·감소 비율·필수 PDF·복사/교체/아카이브 오류와 복구 사본 보존을 검증한다.
 
 ### TEST-SRS-005
 
@@ -294,7 +297,7 @@ PAT와 SMTP 자격증명은 환경변수 또는 Git 제외 운영 설정에서�
 ### TEST-ISSUE-001
 
 - 검증 대상: REQ-ISSUE-001, REQ-ISSUE-002.
-- 상태: 계획. 이슈 전체 수집의 독립 회귀 테스트는 아직 없음.
+- 상태: 일부 구현. `tests/test_issue_reliability.py`는 합성 수집과 실제 렌더러를 검증한다. 실제 서버 페이지 경계·전체 건수 확인은 남아 있다.
 - 선행 조건: 합성 API 응답 및 임시 폴더; 별도 승인된 운영 확인 시에만 실제 서버 사용.
 - 절차: ID/쿼리 선택, 페이지 경계·중복·0건·제한, 첨부 실패, HTML/Markdown 링크와 이미지, 설정 미변경, 이전 결과 보존을 검증한다.
 - Expected Result: 선택한 항목과 산출물 일치; 실패·제한을 명확히 기록. 검증 전 verified로 표기하지 않음.
@@ -309,7 +312,7 @@ PAT와 SMTP 자격증명은 환경변수 또는 Git 제외 운영 설정에서�
 ### TEST-OPS-002
 
 - 검증 대상: REQ-OPS-001.
-- 상태: 계획. 실패 재현 통합 테스트 미구현.
+- 상태: 부분 구현. 이슈 실패 주입은 TEST-OPS-004로 검증; SMTP와 SRS 조기 예외는 후속 대상.
 - 절차: 항목 수집 실패, PDF 실패, 0건, 제한 수집, SMTP 실패, 조기 API 예외를 각각 주입한다.
 - Expected Result: 필수 단계 실패는 완전 성공과 구분되고 원인이 남음; 알림 실패가 배포를 취소하지 않음.
 
@@ -325,6 +328,18 @@ PAT와 SMTP 자격증명은 환경변수 또는 Git 제외 운영 설정에서�
 - 절차: Git 추적 목록과 ignore 규칙을 대조하고 실제 설정·원문·생성물 미포함 확인. Rich Text 테스트 실행.
 - Expected Result: 보호 파일 미추적, 비밀값 출력 없음, 스크립트 제거. 운영 비밀값 내용을 열람하지 않음.
 
+### TEST-OPS-004
+
+- 검증 대상: REQ-OPS-002, REQ-OPS-001.
+- 절차: 합성 클라이언트로 정상/0건/제한/중복/항목 실패/PDF 실패/조회 예외를 주입하고 실제 출력 트리를 비교한다. 파일 교체 실패와 동시 실행을 재현한다.
+- Expected Result: manifest와 종료 코드가 실제 결과와 일치하고 이전 성공본이 보존된다.
+
+### TEST-OBS-001
+
+- 검증 대상: REQ-OBS-001.
+- 절차: 합성 SRS/이슈 파일로 첫 분석·반복·변경·부분 입력·손상 입력을 실행하고 상태 저장 결과를 비교한다.
+- Expected Result: 근거 있는 후보만 저장, 반복 후보 중복 없음, 기존 처리 상태 유지, 외부 부작용 없음.
+
 ## 12. 요구사항 추적성
 
 | Requirement | Implementation | Test | Status |
@@ -334,11 +349,13 @@ PAT와 SMTP 자격증명은 환경변수 또는 Git 제외 운영 설정에서�
 | REQ-SRS-001 | `apps/srs-spec/src/collector.py`, `apps/srs-spec/src/richtext.py`, `apps/srs-spec/src/snapshot_store.py` | TEST-SRS-001 | implemented |
 | REQ-SRS-002 | `apps/srs-spec/src/partition.py`, `apps/srs-spec/src/pdf.py`, `apps/srs-spec/src/render_recovery.py` | TEST-SRS-002, TEST-OPS-001 | implemented |
 | REQ-SRS-003 | `apps/srs-spec/src/diff.py`, `apps/srs-spec/src/report.py`, `apps/srs-spec/src/period_report.py` | TEST-SRS-003 | implemented |
-| REQ-SRS-004 | `apps/srs-spec/main.py`, `apps/srs-spec/src/validate.py`, `apps/srs-spec/src/publish.py` | TEST-SRS-004 | implemented (9절 불일치 있음) |
+| REQ-SRS-004 | `apps/srs-spec/main.py`, `apps/srs-spec/src/validate.py`, `apps/srs-spec/src/publish.py` | TEST-SRS-004 | implemented (강제 종료 복구 제한은 9절) |
 | REQ-SRS-005 | `apps/srs-spec/scripts/install_task.ps1`, `apps/srs-spec/src/run_lock.py`, `apps/srs-spec/src/run_marker.py` | TEST-SRS-005 | implemented |
 | REQ-ISSUE-001 | `apps/issue-export/polarion_query_backup.py` | TEST-ISSUE-001 | implemented |
 | REQ-ISSUE-002 | `apps/issue-export/polarion_query_backup.py`, `run.py` | TEST-ISSUE-001, TEST-OPS-001 | implemented |
 | REQ-OPS-001 | `apps/issue-export/polarion_query_backup.py`, `apps/srs-spec/main.py`, `apps/srs-spec/src/notify.py` | TEST-OPS-002 | draft |
+| REQ-OPS-002 | `apps/issue-export/export_run.py`, `apps/issue-export/polarion_query_backup.py` | TEST-OPS-004 | verified (합성 입력) |
+| REQ-OBS-001 | `observation.py`, `run.py` | TEST-OBS-001 | verified (로컬 합성 입력) |
 | NFR-OPS-001 | `run.py`, `.gitignore` | TEST-OPS-003 | verified |
 | NFR-SEC-001 | `.gitignore`, `apps/srs-spec/.gitignore`, `apps/issue-export/.gitignore`, `apps/srs-spec/src/richtext.py` | TEST-SEC-001 | implemented |
 
@@ -347,7 +364,7 @@ verified의 범위는 11절과 검증 기록으로 한정한다.
 ## 13. 미확정 사항
 
 - 실제 서버·출력 대상·수신자·예약 실행 시각은 보호된 운영 설정을 열람하지 않아 확인하지 않았다.
-- 필수 이미지 실패의 중단 기준, 수집 감소 허용치, PDF 선택 출력의 성공 판정은 설정 불일치 정리 시 확정해야 한다.
+- SRS 필수 이미지 실패의 중단 기준은 운영 정책 확인이 필요하다. 감소 허용치와 PDF 선택 정책은 설정값에 따라 검사한다.
 - 전체 이슈 수집/실제 배포/메일 수신/장시간 예약 실행은 운영 검증이 남아 있다.
 - 다음 자동화의 실행 주기, 대상 쿼리, 중요도 규칙, 알림 채널·수신자, AI 사용 여부는 미확정이다.
 

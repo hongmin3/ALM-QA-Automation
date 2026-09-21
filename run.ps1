@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('menu', 'srs', 'issues')]
+    [ValidateSet('menu', 'srs', 'issues', 'observe')]
     [string]$Mode = 'menu',
     [Parameter(ValueFromRemainingArguments = $true)]
     [AllowEmptyString()]

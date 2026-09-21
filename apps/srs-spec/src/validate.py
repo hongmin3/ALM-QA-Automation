@@ -7,6 +7,7 @@ Python 프로세스가 예외 없이 끝났다는 것만으로 성공으로 보�
 from __future__ import annotations
 
 import logging
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -44,6 +45,11 @@ def validate_run(
     pdf_results: list[PdfResult],
     expected_pdf_count: int,
     partition_warnings: list[str],
+    assigned_records: list[dict[str, Any]],
+    required_pdf_names: list[str],
+    previous_srs_count: int | None = None,
+    min_expected_srs_ratio: float = 0.95,
+    require_all_pdfs: bool = True,
 ) -> ValidationResult:
     result = ValidationResult(ok=True)
 
@@ -60,9 +66,32 @@ def validate_run(
     missing_id = [r["uid"] for r in all_records if not r.get("id")]
     result.add("no_missing_srs_id", len(missing_id) == 0, f"missing={len(missing_id)}")
 
+    collected = Counter(r["uid"] for r in all_records)
+    assigned = Counter(r["uid"] for r in assigned_records)
+    result.add(
+        "all_srs_assigned_once",
+        collected == assigned and all(count == 1 for count in assigned.values()),
+        f"missing={list((collected - assigned).elements())}, extra={list((assigned - collected).elements())}",
+    )
+    ratio_valid = 0 <= min_expected_srs_ratio <= 1
+    result.add("valid_min_expected_srs_ratio", ratio_valid, f"ratio={min_expected_srs_ratio}")
+    if previous_srs_count:
+        result.add(
+            "previous_snapshot_count_ratio",
+            ratio_valid and len(all_records) >= previous_srs_count * min_expected_srs_ratio,
+            f"current={len(all_records)}, previous={previous_srs_count}, minimum_ratio={min_expected_srs_ratio}",
+        )
+
+    names = [pr.path.name.casefold() for pr in pdf_results]
+    required = [name.casefold() for name in required_pdf_names]
+    result.add("nonempty_groups_have_pdfs", set(required).issubset(names),
+               f"missing={sorted(set(required) - set(names))}")
+    result.add("unique_pdf_names", len(names) == len(set(names)) and len(required) == len(set(required)),
+               "Each group must have a distinct output name")
     result.add(
         "all_pdfs_generated",
-        len(pdf_results) == expected_pdf_count,
+        bool(pdf_results) and (len(pdf_results) == expected_pdf_count if require_all_pdfs
+                               else len(required) <= len(pdf_results) <= expected_pdf_count),
         f"generated={len(pdf_results)}, expected={expected_pdf_count}",
     )
 

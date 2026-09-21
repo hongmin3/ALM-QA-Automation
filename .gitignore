@@ -27,6 +27,7 @@ akela/.cache/
 
 # Local integration evidence, task backups, and private issue documents
 .migration/
+.observation/
 /apps/issue-export/*.pdf
 **/.env
 **/IMPLEMENTATION_LOG.md
