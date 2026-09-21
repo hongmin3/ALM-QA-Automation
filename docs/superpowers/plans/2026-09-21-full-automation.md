@@ -925,3 +925,33 @@ git commit -m "docs: document full automation operation"
 - [ ] **Step 9: Final review and push**
 
 Inspect `git diff HEAD~7..HEAD`, `git status --short`, tracked secret paths, local/remote commit IDs, and GitHub CI if present. Exclude `akela/learnings-log.jsonl`, `.automation/`, private configs, and `.migration/` from commits. Push `main` only after all required checks pass.
+
+---
+
+### Task 8: Filter Related Issues by the SRS Updated Window
+
+**Files:**
+- Modify: `automation_core/correlation.py`
+- Modify: `automation_core/orchestrator.py`
+- Modify: `automation_core/email.py`
+- Modify: `tests/test_automation_correlation.py`
+- Modify: `tests/test_automation_email.py`
+- Modify: `README.md`
+- Modify: `SPEC.md`
+- Modify: `docs/superpowers/specs/2026-09-21-full-automation-design.md`
+
+**Interfaces:**
+- Consumes: changed SRS before/after records and linked issue `created`/`updated` attributes.
+- Produces: linked issue IDs restricted to `(previous SRS updated, current SRS updated]`, plus the applied window and matched activity fields in candidate evidence.
+
+- [ ] **Step 1: Add a failing temporal-correlation test**
+
+Use outgoing and incoming links together. Put an old critical issue outside the SRS interval, one issue created inside it, and another updated inside it. Require only the latter two to affect priority and evidence.
+
+- [ ] **Step 2: Apply the timestamp filter and retain evidence**
+
+Parse ISO timestamps as UTC when they have no offset. Apply an exclusive lower bound and inclusive upper bound. Preserve the existing link-only behavior for legacy records whose two SRS timestamps do not form a valid interval.
+
+- [ ] **Step 3: Verify report safety and full regression**
+
+Ensure the digest contains only the safe interval/evidence fields, then run correlation, email, orchestrator, and full repository tests before activation.

@@ -8,7 +8,7 @@
 
 | 명령 | 결과 | 확인 범위 |
 |---|---:|---|
-| `python -m pytest tests apps/srs-spec/tests -q` | `187 passed, 4 skipped` | 통합 오케스트레이터, 상태·잠금, 연계, outbox, 런처, 예약 스크립트와 기존 SRS/이슈 회귀 |
+| `python -m pytest tests apps/srs-spec/tests -q` | `199 passed, 4 skipped` | 통합 오케스트레이터, 상태·잠금, SRS `updated` 기간 연계, outbox, 런처, 예약 스크립트와 기존 SRS/이슈 회귀 |
 | `python -m pytest tests/test_automation_orchestrator.py::test_synthetic_end_to_end_sends_one_candidate_once -q` | `1 passed` | 첫 기준선 0건, 다음 실행 후보 1건·합성 메일 1회 `SENT`, 동일 날짜 재실행 추가 수집/메일 0건 |
 
 4개 skip은 저장소에 포함된 실데이터 선택 테스트로, 합성 회귀 실패가 아니다. 민감하지 않은 E2E 요약은 Git 제외 경로 `.migration/full-automation-smoke/summary.json`에 저장했다.
@@ -28,6 +28,7 @@
 - 두 수집 중 하나가 실패·부분 완료이면 분석 기준선과 후보를 갱신하지 않는다.
 - 최초 완전 수집은 기준선만 만들고 기존 전체 항목을 신규 후보로 알리지 않는다.
 - 정확한 Polarion ID와 linked work item만 연결하며 유사 제목은 연결하지 않는다.
+- 변경 SRS 관련 이슈는 `(직전 SRS updated, 현재 SRS updated]`에 생성 또는 수정된 항목만 남기며, 충족 필드와 적용 기간을 후보·메일 근거에 기록한다.
 - outbox는 발송 전 `SENDING`을 확정하고 성공 후 `SENT`, 확인된 실패는 최대 3회 뒤 `FAILED`로 남긴다.
 - 중단된 `SENDING`은 자동 재발송하지 않으며 운영자가 수신 여부를 확인한 후 수동 재대기한다.
 - 이메일 본문은 상태, 우선순위, 프로젝트/항목 ID, 이유, 연결 ID, 상태 변화, 로컬 summary 경로만 포함한다.

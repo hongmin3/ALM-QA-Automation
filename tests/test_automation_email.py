@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-from automation_core.email import build_digest, drain_outbox
+from automation_core.email import build_digest, drain_outbox, load_existing_srs_mail_settings
 from automation_core.state import AutomationStore
 
 
@@ -23,6 +23,17 @@ def candidate_payload(candidate_ids: list[str], **private_values: str) -> dict:
                 "itemId": candidate_ids[0],
                 "reasons": ["CHANGED_SRS", "LINKED_OPEN_ISSUE"],
                 "linkedIds": ["P/ISSUE-7"],
+                "linkEvidence": [
+                    {
+                        "direction": "SRS_TO_ISSUE",
+                        "id": "P/ISSUE-7",
+                        "activityFields": ["updated"],
+                    }
+                ],
+                "issueWindow": {
+                    "startExclusive": "2026-09-14T09:00:00Z",
+                    "endInclusive": "2026-09-21T09:00:00Z",
+                },
                 "statusChange": {"before": "draft", "after": "approved"},
                 **private_values,
             }
@@ -112,3 +123,58 @@ def test_email_payload_excludes_source_records_and_secrets() -> None:
     serialized = message.as_string()
     assert "PRIVATE" not in serialized
     assert "SECRET" not in serialized
+    body = message.get_content()
+    assert "startExclusive" in body
+    assert "activityFields" in body
+
+
+def test_candidate_message_dedup_ignores_run_specific_metadata(tmp_path: Path) -> None:
+    store = AutomationStore(tmp_path / ".automation")
+    first = candidate_payload(["candidate-a"])
+    first.update({"runId": "run-a", "summaryPath": ".automation/runs/run-a/summary.md"})
+    second = candidate_payload(["candidate-a"])
+    second.update({"runId": "run-b", "summaryPath": ".automation/runs/run-b/summary.md"})
+
+    first_id, first_created = store.enqueue(first)
+    second_id, second_created = store.enqueue(second)
+
+    assert first_created is True
+    assert second_created is False
+    assert first_id == second_id
+
+
+def test_existing_srs_env_is_loaded_before_mail_settings(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "repo"
+    srs_root = root / "apps" / "srs-spec"
+    source = srs_root / "src"
+    source.mkdir(parents=True)
+    (srs_root / ".env").write_text(
+        "SMTP_HOST=smtp.env.test\nSMTP_USER=env-user\nSMTP_PASSWORD=env-secret\n"
+        "MAIL_FROM=from@env.test\nMAIL_TO=to@env.test\n",
+        encoding="utf-8",
+    )
+    config_path = srs_root / "config.yaml"
+    config_path.write_text("mail:\n  enabled: true\n", encoding="utf-8")
+    (source / "config.py").write_text(
+        "from pathlib import Path\n"
+        "from types import SimpleNamespace\n"
+        "def load_config(path):\n"
+        "    return SimpleNamespace(raw={'mail': {'enabled': True}}, snapshots_dir=Path(path).parent/'snapshots')\n",
+        encoding="utf-8",
+    )
+    (source / "notify.py").write_text(
+        "import os\n"
+        "from types import SimpleNamespace\n"
+        "def load_mail_settings(raw, root):\n"
+        "    values=[os.getenv('SMTP_HOST'),os.getenv('SMTP_USER'),os.getenv('SMTP_PASSWORD'),os.getenv('MAIL_FROM'),os.getenv('MAIL_TO')]\n"
+        "    return SimpleNamespace(enabled=True, from_addr=values[3], to_addrs=[values[4]] if values[4] else [], missing_fields=lambda: [] if all(values) else ['env'])\n"
+        "def send_message(settings, message): return True\n",
+        encoding="utf-8",
+    )
+    for name in ("SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "MAIL_FROM", "MAIL_TO"):
+        monkeypatch.delenv(name, raising=False)
+
+    _, settings, runtime = load_existing_srs_mail_settings(root, config_path)
+
+    assert settings.missing_fields() == []
+    assert runtime.snapshots_dir == srs_root / "snapshots"

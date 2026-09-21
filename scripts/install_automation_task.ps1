@@ -11,6 +11,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'automation_task_helpers.ps1')
 $selectedModes = @($PlanJson.IsPresent, $Install.IsPresent, $FinalizeTransition.IsPresent) |
     Where-Object { $_ }
 if ($selectedModes.Count -gt 1) {
@@ -138,19 +139,16 @@ if ($PSCmdlet.ShouldProcess($TaskName, 'Register-ScheduledTask')) {
     $registered = Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop
     $registeredAction = @($registered.Actions)[0]
     $registeredTrigger = @($registered.Triggers)[0]
-    $registeredDays = [string]$registeredTrigger.DaysOfWeek
     $registeredAt = ([datetime]$registeredTrigger.StartBoundary).ToString('HH:mm')
     $expectedPython = [IO.Path]::GetFullPath($PythonExe)
     $actualPython = [IO.Path]::GetFullPath([string]$registeredAction.Execute)
-    $missingDay = $days | Where-Object { $registeredDays -notmatch [regex]::Escape($_) }
     $executionLimit = [Xml.XmlConvert]::ToTimeSpan([string]$registered.Settings.ExecutionTimeLimit)
     $mismatch = @(
         $actualPython -ne $expectedPython
         [string]$registeredAction.Arguments -ne 'automation.py'
         [IO.Path]::GetFullPath([string]$registeredAction.WorkingDirectory) -ne [IO.Path]::GetFullPath($ProjectRoot)
         $registeredAt -ne $At
-        @($missingDay).Count -ne 0
-        [int]$registeredTrigger.WeeksInterval -ne 1
+        -not (Test-AutomationWeekdayTrigger $registeredTrigger)
         $registered.Settings.StartWhenAvailable -ne $true
         $registered.Settings.RunOnlyIfNetworkAvailable -ne $true
         [string]$registered.Settings.MultipleInstances -ne 'IgnoreNew'

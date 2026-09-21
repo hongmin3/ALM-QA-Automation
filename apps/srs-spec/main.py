@@ -51,6 +51,7 @@ from src.validate import validate_run
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="VXvue/License Manager SRS 사양서 자동 최신화")
+    p.add_argument("--config", type=Path, help="기본 config/config.yaml 대신 사용할 설정 파일")
     p.add_argument("--crawl-only", action="store_true", help="Polarion 수집 + Snapshot 저장만 수행")
     p.add_argument("--export-only", action="store_true", help="오늘자 Snapshot으로 HTML/PDF만 재생성")
     p.add_argument("--diff-only", action="store_true", help="오늘자 vs 이전 Snapshot Diff/리포트만 재생성")
@@ -512,7 +513,7 @@ def main() -> int:
     file_date_placeholder = "temp"
 
     try:
-        config = load_config()
+        config = load_config(args.config)
     except ConfigError as exc:
         print(f"[설정 오류] {exc}", file=sys.stderr)
         return 2

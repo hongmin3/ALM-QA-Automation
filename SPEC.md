@@ -198,8 +198,8 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 ### REQ-AUTO-002 — SRS·이슈 연계와 검토 우선순위
 
 - 입력: 완전한 SRS 스냅샷, 성공 이슈 manifest와 backup, 기존 후보 상태, 중요도 설정.
-- 동작: 명시적 linked work item과 정확한 Polarion ID 참조로만 연계한다. 변경 SRS와 연결된 재오픈/최상위 심각도 이슈는 CRITICAL, 연결된 미해결 이슈는 HIGH, 그 밖의 신규·변경은 MEDIUM으로 분류한다.
-- 기대 결과: 후보마다 선정 이유, 연결 방향·ID, 상태 변화, 변경 버전, 원문 경로를 보존한다. 같은 변경 버전과 연결 집합은 중복 후보가 아니며 기존 검토 상태를 유지한다.
+- 동작: 명시적 linked work item과 정확한 Polarion ID 참조로만 연계한다. 변경 SRS의 직전 `updated`보다 늦고 현재 `updated` 이하인 구간에 `created` 또는 `updated`된 연결 이슈만 해당 SRS의 관련 이슈로 고려한다. 이 중 재오픈/최상위 심각도 이슈는 CRITICAL, 미해결 이슈는 HIGH, 그 밖의 신규·변경은 MEDIUM으로 분류한다.
+- 기대 결과: 후보마다 선정 이유, 연결 방향·ID, 이슈가 기간 조건을 충족한 필드, SRS `updated` 구간, 상태 변화, 변경 버전, 원문 경로를 보존한다. 같은 변경 버전과 연결 집합은 중복 후보가 아니며 기존 검토 상태를 유지한다.
 - 예외 처리: 제목·키워드 유사도로 연계하지 않는다. 알 수 없는 상태·심각도는 임의 상향하지 않고 MEDIUM으로 기록한다. 입력 누락을 삭제로 추정하지 않는다.
 - 관련 구현: `automation_core/correlation.py`, `automation_core/state.py`, `observation.py`. 관련 테스트: TEST-AUTO-002.
 
@@ -387,8 +387,8 @@ PAT와 SMTP 자격증명은 환경변수 또는 Git 제외 운영 설정에서�
 ### TEST-AUTO-002
 
 - 검증 대상: REQ-AUTO-002.
-- 절차: 양방향 명시 링크, 정확한 ID 참조, 유사 제목, 재오픈·미해결·알 수 없는 상태, 동일 변경 재실행과 검토 상태를 합성 입력으로 비교한다.
-- Expected Result: 근거 있는 연결과 CRITICAL/HIGH/MEDIUM만 생성하고 유사 제목은 연결하지 않으며 후보·검토 상태가 중복되지 않는다.
+- 절차: 양방향 명시 링크, 정확한 ID 참조, 유사 제목, SRS의 직전·현재 `updated` 경계 안팎에서 생성·수정된 이슈, 재오픈·미해결·알 수 없는 상태, 동일 변경 재실행과 검토 상태를 합성 입력으로 비교한다.
+- Expected Result: SRS `updated` 구간 안에서 생성 또는 수정된 연결 이슈만 근거와 CRITICAL/HIGH/MEDIUM에 반영하고, 유사 제목과 기간 밖 이슈는 연결 결과에서 제외하며 후보·검토 상태가 중복되지 않는다.
 
 ### TEST-AUTO-003
 

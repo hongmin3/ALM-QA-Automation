@@ -91,7 +91,20 @@ class AutomationStore:
         return True
 
     def enqueue(self, payload: dict) -> tuple[str, bool]:
-        message_id = hashlib.sha256(canonical_json(payload).encode("utf-8")).hexdigest()
+        identity: object = payload
+        if payload.get("kind") == "CANDIDATES":
+            candidate_ids = payload.get("candidateIds")
+            if not isinstance(candidate_ids, list):
+                candidate_ids = [
+                    item.get("id")
+                    for item in payload.get("candidates", [])
+                    if isinstance(item, dict) and item.get("id")
+                ]
+            identity = {
+                "kind": "CANDIDATES",
+                "candidateIds": sorted(str(value) for value in candidate_ids),
+            }
+        message_id = hashlib.sha256(canonical_json(identity).encode("utf-8")).hexdigest()
         outbox = self.load_outbox()
         messages = outbox.get("messages")
         if not isinstance(messages, dict):
@@ -123,7 +136,7 @@ class AutomationStore:
 
     def save_run(self, run_id: str, manifest: dict, summary: str) -> Path:
         run_dir = self.root / "runs" / run_id
-        run_dir.mkdir(parents=True, exist_ok=False)
+        run_dir.mkdir(parents=True, exist_ok=True)
         self._atomic_write_at(run_dir / "manifest.json", manifest)
         self._atomic_text_at(run_dir / "summary.md", summary)
         return run_dir

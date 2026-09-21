@@ -10,7 +10,7 @@ from email.message import EmailMessage
 from pathlib import Path
 from types import ModuleType
 
-import yaml
+from dotenv import load_dotenv
 
 from automation_core.state import AutomationStore
 
@@ -34,6 +34,8 @@ def build_digest(payload: dict) -> EmailMessage:
                 "itemId",
                 "reasons",
                 "linkedIds",
+                "linkEvidence",
+                "issueWindow",
                 "statusChange",
             )
         }
@@ -57,9 +59,8 @@ def build_digest(payload: dict) -> EmailMessage:
     return message
 
 
-def _load_srs_notify_module(srs_root: Path) -> ModuleType:
-    module_path = srs_root / "src" / "notify.py"
-    module_name = "_alm_qa_srs_notify"
+def _load_srs_module(srs_root: Path, filename: str, module_name: str) -> ModuleType:
+    module_path = srs_root / "src" / filename
     spec = importlib.util.spec_from_file_location(module_name, module_path)
     if spec is None or spec.loader is None:
         raise ImportError("unable to load SRS notification module")
@@ -71,18 +72,18 @@ def _load_srs_notify_module(srs_root: Path) -> ModuleType:
 
 def load_existing_srs_mail_settings(root: Path, config_path: Path):
     srs_root = root / "apps" / "srs-spec"
-    raw = yaml.safe_load(config_path.read_text(encoding="utf-8-sig")) or {}
-    if not isinstance(raw, dict):
-        raise ValueError("SRS configuration must be a mapping")
-    notify = _load_srs_notify_module(srs_root)
-    return notify, notify.load_mail_settings(raw, srs_root)
+    load_dotenv(srs_root / ".env", override=False)
+    config_module = _load_srs_module(srs_root, "config.py", "_alm_qa_srs_config")
+    runtime = config_module.load_config(config_path)
+    notify = _load_srs_module(srs_root, "notify.py", "_alm_qa_srs_notify")
+    return notify, notify.load_mail_settings(runtime.raw, srs_root), runtime
 
 
 def existing_srs_sender(
     root: Path,
     config_path: Path,
 ) -> Callable[[EmailMessage], bool]:
-    notify, settings = load_existing_srs_mail_settings(root, config_path)
+    notify, settings, _ = load_existing_srs_mail_settings(root, config_path)
 
     def sender(message: EmailMessage) -> bool:
         message["From"] = settings.from_addr

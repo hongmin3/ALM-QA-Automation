@@ -4,6 +4,7 @@ import argparse
 import os
 import subprocess
 import sys
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -45,16 +46,20 @@ def _check_schema(config: AutomationConfig) -> None:
         raise ValueError("required tracked entrypoint is missing")
 
 
-def _check_local(config: AutomationConfig) -> None:
+def _check_local(config: AutomationConfig, *, require_mail: bool = True) -> Path:
     _check_schema(config)
     if not config.srs_config.is_file() or not config.issue_config.is_file():
         raise ValueError("required private configuration is missing")
     config.state_dir.parent.mkdir(parents=True, exist_ok=True)
     if not os.access(config.state_dir.parent, os.W_OK):
         raise ValueError("automation state parent is not writable")
-    _, settings = load_existing_srs_mail_settings(config.root, config.srs_config)
-    if not settings.enabled or settings.missing_fields():
+    _, settings, runtime = load_existing_srs_mail_settings(config.root, config.srs_config)
+    snapshot_dir = Path(runtime.snapshots_dir).resolve()
+    if not snapshot_dir.is_relative_to(config.root):
+        raise ValueError("SRS snapshot directory must remain inside project")
+    if require_mail and (not settings.enabled or settings.missing_fields()):
         raise ValueError("existing SRS mail settings are incomplete")
+    return snapshot_dir
 
 
 def _runner(args: list[str], cwd: Path) -> int:
@@ -70,10 +75,13 @@ def main(argv: list[str] | None = None) -> int:
             print("Automation schema check: OK")
             return 0
         if args.check_local:
-            _check_local(config)
+            _check_local(config, require_mail=not args.no_send)
             print("Automation local check: OK")
             return 0
 
+        if not (args.retry_email and args.no_send):
+            snapshot_dir = _check_local(config, require_mail=not args.no_send)
+            config = replace(config, srs_snapshot_dir=snapshot_dir)
         store = AutomationStore(config.state_dir)
         sender = None if args.no_send else existing_srs_sender(config.root, config.srs_config)
         now = datetime.now(timezone.utc)
@@ -102,7 +110,7 @@ def main(argv: list[str] | None = None) -> int:
     except AutomationBusyError:
         print("Automation is already running.", file=sys.stderr)
         return 4
-    except (OSError, ValueError, TypeError, KeyError, ImportError):
+    except Exception:
         print("Automation configuration or local state check failed.", file=sys.stderr)
         return 2
 

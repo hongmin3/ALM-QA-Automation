@@ -7,6 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "install_automation_task.ps1"
+HELPERS = ROOT / "scripts" / "automation_task_helpers.ps1"
 
 
 def run_powershell(*arguments: str) -> subprocess.CompletedProcess[str]:
@@ -70,3 +71,23 @@ def test_finalize_success_whatif_names_both_legacy_tasks(tmp_path: Path) -> None
     assert "VXvue_SRS_Spec_Automation" in combined
     assert "VXvue_SRS_Spec_Automation_CatchUp" in combined
     assert "Unregister-ScheduledTask" not in combined
+
+
+def test_real_weekday_trigger_uses_exact_windows_bitmask() -> None:
+    command = (
+        f". '{HELPERS}'; "
+        "$trigger = New-ScheduledTaskTrigger -Weekly -WeeksInterval 1 "
+        "-DaysOfWeek Monday,Tuesday,Wednesday,Thursday,Friday -At '09:00'; "
+        "if (Test-AutomationWeekdayTrigger $trigger) { exit 0 } else { exit 1 }"
+    )
+    result = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-Command", command],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr

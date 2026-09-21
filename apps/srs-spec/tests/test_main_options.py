@@ -29,6 +29,15 @@ def test_no_mail_parses_without_changing_other_defaults(monkeypatch) -> None:
     assert args.dry_run is False
 
 
+def test_explicit_config_path_is_accepted(monkeypatch) -> None:
+    main = load_main()
+    monkeypatch.setattr(sys, "argv", ["main.py", "--config", "custom.yaml"])
+
+    args = main.parse_args()
+
+    assert args.config == Path("custom.yaml")
+
+
 def test_no_mail_skips_sender_after_success(monkeypatch) -> None:
     main = load_main()
     sent = []

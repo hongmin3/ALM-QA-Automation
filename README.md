@@ -194,7 +194,7 @@ python automation.py --retry-email "메시지 ID"
 powershell -NoProfile -File scripts/install_automation_task.ps1 -PlanJson
 ```
 
-통합 실행 순서는 `SRS → 이슈 → 분석 → outbox → 이메일`입니다. 첫 완전 수집은 기준선만 저장합니다. 이후 변경 SRS에 연결된 재오픈 또는 critical/blocker 이슈는 `CRITICAL`, 연결된 미해결 이슈는 `HIGH`, 연결되지 않은 SRS 변경과 이슈 단독 변경은 `MEDIUM`입니다. 제목 유사도는 연결 근거로 사용하지 않습니다.
+통합 실행 순서는 `SRS → 이슈 → 분석 → outbox → 이메일`입니다. 첫 완전 수집은 기준선만 저장합니다. 이후 변경 SRS에 연결된 이슈 중 **직전 SRS `updated`보다 늦고 현재 `updated` 이하인 기간에 생성 또는 수정된 이슈만** 관련 이슈로 보고합니다. 해당 이슈가 재오픈 또는 critical/blocker이면 `CRITICAL`, 미해결이면 `HIGH`, 연결되지 않은 SRS 변경과 이슈 단독 변경은 `MEDIUM`입니다. 제목 유사도와 기간 밖의 오래된 이슈는 연결 근거로 사용하지 않습니다.
 
 `.automation/`에는 확정 상태, 실행 manifest, 수집 결과와 outbox가 남습니다. `PENDING`은 다음 실행에서 재시도하고, 3회 실패는 `FAILED`로 보존합니다. 프로세스가 SMTP 호출 중 종료되어 `SENDING`으로 남으면 중복 가능성 때문에 자동 재발송하지 않습니다. 받은 편지함 확인 후 `--retry-email`로 수동 재대기합니다. 종료 코드는 성공 `0`, 데이터 실패 `1`, 설정 오류 `2`, 메일 대기 또는 잠금 충돌 `4`입니다.
 

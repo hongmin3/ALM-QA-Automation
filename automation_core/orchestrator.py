@@ -23,8 +23,15 @@ class AutomationBusyError(RuntimeError):
     pass
 
 
-def srs_command(root: Path) -> tuple[list[str], Path]:
-    return [sys.executable, str(root / "run.py"), "srs", "--no-mail"], root
+def srs_command(root: Path, srs_config: Path) -> tuple[list[str], Path]:
+    return [
+        sys.executable,
+        str(root / "run.py"),
+        "srs",
+        "--config",
+        str(srs_config),
+        "--no-mail",
+    ], root
 
 
 def issue_command(
@@ -51,6 +58,8 @@ def sanitize_candidates(candidates: list[dict]) -> list[dict]:
         "itemId",
         "reasons",
         "linkedIds",
+        "linkEvidence",
+        "issueWindow",
         "statusChange",
     )
     return [{key: candidate.get(key) for key in allowed} for candidate in candidates]
@@ -83,6 +92,10 @@ def _merge_delivery(*results: DeliveryResult) -> DeliveryResult:
     )
 
 
+def _relative_input(path: Path, root: Path) -> str:
+    return path.resolve().relative_to(root.resolve()).as_posix()
+
+
 def run_automation(
     config: AutomationConfig,
     store: AutomationStore,
@@ -96,6 +109,15 @@ def run_automation(
         name: "NOT_RUN"
         for name in ("srs", "issues", "analysis", "outbox", "email")
     }
+    progress = {
+        "runId": run_id,
+        "localDate": local_date,
+        "status": "RUNNING",
+        "dataComplete": False,
+        "resumedOutboxOnly": False,
+        "stages": dict(stages),
+        "inputs": {},
+    }
 
     def deliver() -> DeliveryResult:
         if sender is None:
@@ -108,7 +130,12 @@ def run_automation(
             config.retry_minutes,
         )
 
+    def checkpoint() -> None:
+        progress["stages"] = dict(stages)
+        store.save_run(run_id, progress, render_summary(progress))
+
     def finish(manifest: dict) -> dict:
+        manifest.setdefault("inputs", dict(progress["inputs"]))
         store.save_run(run_id, manifest, render_summary(manifest))
         state = store.load_state()
         state["runs"][run_id] = manifest
@@ -143,6 +170,7 @@ def run_automation(
                 "childExitCode": code,
                 "failureMessageId": message_id,
                 "stages": dict(stages),
+                "inputs": dict(progress["inputs"]),
                 "delivery": asdict(_merge_delivery(initial_delivery, final_delivery)),
             }
         )
@@ -154,6 +182,8 @@ def run_automation(
         raise AutomationBusyError("another automation run holds the lock") from exc
 
     try:
+        store.migrate_observation(config.root / ".observation" / "state.json")
+        checkpoint()
         initial_delivery = deliver()
         prior = store.successful_run_for(local_date)
         if prior:
@@ -172,7 +202,7 @@ def run_automation(
                 }
             )
 
-        args, cwd = srs_command(config.root)
+        args, cwd = srs_command(config.root, config.srs_config)
         try:
             code = runner(args, cwd)
         except OSError:
@@ -180,6 +210,10 @@ def run_automation(
         if code != 0:
             return fail("srs", code)
         stages["srs"] = "SUCCESS"
+        progress["inputs"]["srsSnapshot"] = _relative_input(
+            config.srs_snapshot_dir / local_date, config.root
+        )
+        checkpoint()
 
         issue_output = store.root / "collections" / run_id / "issues"
         args, cwd = issue_command(config.root, issue_output, config.issue_config)
@@ -190,6 +224,10 @@ def run_automation(
         if code != 0:
             return fail("issues", code)
         stages["issues"] = "SUCCESS"
+        progress["inputs"]["issueManifest"] = _relative_input(
+            issue_output / "manifest.json", config.root
+        )
+        checkpoint()
 
         try:
             current_srs = load_srs(config.srs_snapshot_dir / local_date)
@@ -213,6 +251,7 @@ def run_automation(
             config.rules,
         )
         stages["analysis"] = "SUCCESS"
+        checkpoint()
 
         new_candidates: list[dict] = []
         for candidate in candidates:
@@ -241,6 +280,7 @@ def run_automation(
             )
         stages["outbox"] = "SUCCESS"
         store.save_state(state)
+        checkpoint()
 
         final_delivery = deliver()
         unresolved = store.has_unresolved_messages()
@@ -255,6 +295,7 @@ def run_automation(
                 "candidateCount": len(new_candidates),
                 "notificationCount": len(notified),
                 "stages": dict(stages),
+                "inputs": dict(progress["inputs"]),
                 "delivery": asdict(_merge_delivery(initial_delivery, final_delivery)),
             }
         )
