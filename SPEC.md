@@ -421,7 +421,7 @@ PAT와 SMTP 자격증명은 환경변수 또는 Git 제외 운영 설정에서�
 | REQ-AUTO-001 | `automation.py`, `automation_core/orchestrator.py`, `automation_core/state.py`, `apps/srs-spec/main.py` | TEST-AUTO-001, `tests/test_automation_orchestrator.py`, `apps/srs-spec/tests/test_main_options.py` | verified (합성·로컬 입력) |
 | REQ-AUTO-002 | `automation_core/correlation.py`, `observation.py` | TEST-AUTO-002, `tests/test_automation_correlation.py`, `tests/test_observation.py` | verified (합성 입력) |
 | REQ-AUTO-003 | `automation_core/email.py`, `automation_core/state.py`, `apps/srs-spec/src/notify.py` | TEST-AUTO-003, `tests/test_automation_email.py`, `apps/srs-spec/tests/test_notify.py` | verified (합성 SMTP) |
-| REQ-AUTO-004 | `scripts/install_automation_task.ps1` | TEST-AUTO-004, `tests/test_automation_scheduler.py` | verified (계획·WhatIf); 실제 등록/첫 실행은 운영 확인 |
+| REQ-AUTO-004 | `scripts/install_automation_task.ps1` | TEST-AUTO-004, `tests/test_automation_scheduler.py` | verified (계획·실제 등록 재조회); 첫 실제 데이터 실행은 운영 확인 |
 | NFR-OPS-001 | `run.py`, `.gitignore` | TEST-OPS-003 | verified |
 | NFR-SEC-001 | `.gitignore`, `apps/srs-spec/.gitignore`, `apps/issue-export/.gitignore`, `apps/srs-spec/src/richtext.py` | TEST-SEC-001 | implemented |
 
