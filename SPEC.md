@@ -4,10 +4,10 @@
 
 | 항목 | 값 |
 |---|---|
-| Document Version | 1.2.0 |
-| Project Version | 통합 기준 커밋 65f79cb (별도 제품 버전 미지정) |
+| Document Version | 1.3.0 |
+| Project Version | 완전 자동화 구현 (합성·로컬 검증 완료) |
 | Last Updated | 2026-09-21 |
-| Status | approved design — 완전 자동화 구현 예정; 기존 기능은 운영 검증 별도 |
+| Status | implemented — 합성·로컬 검증 완료; 실제 서버·SMTP·예약 첫 실행은 운영 검증 별도 |
 | Owner | 프로젝트 운영자 |
 
 이 문서는 프로그램의 올바른 동작 기준이다. 완전 자동화 요구사항은 구현 상태와 구분한다. 발견된 결함을 정상 사양으로 정당화하지 않는다. 워크스페이스 기준은 [automation-workspace의 사양 기반 개발 규칙](https://github.com/hongmin3/automation-workspace/blob/main/AGENTS.md)이며, 작업 절차는 `AGENTS.md`를 따른다.
@@ -185,7 +185,7 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 - 동작: 저장된 수집 결과를 분석하여 신규·변경 후보와 근거를 저장하고 동일 항목/변경 버전은 중복 생성하지 않는다. 불완전한 이슈 manifest나 손상된 입력을 완전 수집으로 간주하지 않는다.
 - 기대 결과: 관찰 실행 결과와 후보 목록, 후보 처리 상태가 로컬에 남는다. 네트워크·배포·알림 발송은 하지 않는다. 첫 실행은 기준선으로 명시한다.
 - 예외 처리: 입력 오류는 비정상 종료하고 기존 관찰 상태를 훼손하지 않는다. 부분 수집을 근거로 삭제 후보를 만들지 않는다.
-- 관련 구현: `observation.py`, `run.py`. 관련 테스트: TEST-OBS-001. 자동 예약과 실제 발송은 이번 단계에서 제외한다.
+- 관련 구현: `observation.py`, `automation_core/state.py`, `run.py`. 관련 테스트: TEST-OBS-001. 관찰 명령 자체는 네트워크와 발송을 수행하지 않는다.
 
 ### REQ-AUTO-001 — 통합 수집 오케스트레이션
 
@@ -193,7 +193,7 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 - 동작: 단일 OS 잠금과 실행 ID 아래 SRS → 이슈 → 분석 → 대기함 → 발송을 순서대로 수행한다. 단계별 상태와 근거 경로를 manifest에 원자적으로 저장한다.
 - 기대 결과: 두 수집이 완전 성공한 경우에만 분석 기준선을 갱신한다. 첫 성공 입력은 후보 없이 기준선을 만들며, 같은 날 데이터 성공 실행이 있으면 미발송 대기함만 재처리할 수 있다.
 - 예외 처리: 설정 오류 2, 필수 데이터 단계 실패 1, 알림 대기/잠금 충돌 4, 전체 성공 0. 원문·비밀값·외부 오류 전문은 manifest에 기록하지 않는다.
-- 관련 구현: 계획 `automation.py`, `automation_core/orchestrator.py`, `automation_core/state.py`. 관련 테스트: TEST-AUTO-001.
+- 관련 구현: `automation.py`, `automation_core/orchestrator.py`, `automation_core/state.py`, `apps/srs-spec/main.py`. 관련 테스트: TEST-AUTO-001.
 
 ### REQ-AUTO-002 — SRS·이슈 연계와 검토 우선순위
 
@@ -201,7 +201,7 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 - 동작: 명시적 linked work item과 정확한 Polarion ID 참조로만 연계한다. 변경 SRS와 연결된 재오픈/최상위 심각도 이슈는 CRITICAL, 연결된 미해결 이슈는 HIGH, 그 밖의 신규·변경은 MEDIUM으로 분류한다.
 - 기대 결과: 후보마다 선정 이유, 연결 방향·ID, 상태 변화, 변경 버전, 원문 경로를 보존한다. 같은 변경 버전과 연결 집합은 중복 후보가 아니며 기존 검토 상태를 유지한다.
 - 예외 처리: 제목·키워드 유사도로 연계하지 않는다. 알 수 없는 상태·심각도는 임의 상향하지 않고 MEDIUM으로 기록한다. 입력 누락을 삭제로 추정하지 않는다.
-- 관련 구현: 계획 `automation_core/correlation.py`, `automation_core/state.py`. 관련 테스트: TEST-AUTO-002.
+- 관련 구현: `automation_core/correlation.py`, `automation_core/state.py`, `observation.py`. 관련 테스트: TEST-AUTO-002.
 
 ### REQ-AUTO-003 — 영속 이메일 대기함과 재시도
 
@@ -209,7 +209,7 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 - 동작: 원문 없이 중요도·ID·선정 이유·상태 변화·로컬 summary 경로를 포함한 메시지를 outbox에 먼저 저장하고 발송한다. 내용 해시로 중복을 막는다.
 - 기대 결과: PENDING/SENDING/SENT/FAILED, 시도 횟수와 다음 시각이 원자적으로 남는다. 확인된 SMTP 실패는 다음 실행에서 최대 3회 재시도하며 데이터 결과를 되돌리지 않는다.
 - 예외 처리: 3회 실패는 FAILED로 남기고 수동 재전송할 수 있다. SENDING 중 프로세스 종료는 전달 여부가 모호하므로 자동 재전송하지 않고 수동 확인 대상으로 남긴다. 비활성/불완전 SMTP 설정은 외부 연결 전에 로컬 점검에서 실패한다.
-- 관련 구현: 계획 `automation_core/email.py`, `automation_core/state.py`. 관련 테스트: TEST-AUTO-003.
+- 관련 구현: `automation_core/email.py`, `automation_core/state.py`, `apps/srs-spec/src/notify.py`. 관련 테스트: TEST-AUTO-003.
 
 ### REQ-AUTO-004 — 평일 통합 예약 작업과 안전한 전환
 
@@ -217,7 +217,7 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 - 동작: 미리보기와 로컬 점검을 제공하고, 기존 작업 XML을 백업한 후 새 작업을 등록·재조회 검증한다. 첫 통합 데이터 성공 manifest를 확인한 `-FinalizeTransition`에서만 기존 SRS 주간/CatchUp 작업을 비활성화한다.
 - 기대 결과: 월~금 09:00, StartWhenAvailable, 네트워크 필요, IgnoreNew, 제한 실행 시간, 보통 우선순위가 설정된다. 기존 작업은 삭제하지 않아 복구할 수 있다.
 - 예외 처리: 등록 또는 재조회 검증 실패 시 기존 작업 상태를 바꾸지 않는다. 실제 설치 전 `-WhatIf`는 시스템 상태를 변경하지 않는다.
-- 관련 구현: 계획 `scripts/install_automation_task.ps1`. 관련 테스트: TEST-AUTO-004.
+- 관련 구현: `scripts/install_automation_task.ps1`. 관련 테스트: TEST-AUTO-004.
 
 ## 6. 비기능 요구사항
 
@@ -418,10 +418,10 @@ PAT와 SMTP 자격증명은 환경변수 또는 Git 제외 운영 설정에서�
 | REQ-OPS-001 | `apps/issue-export/polarion_query_backup.py`, `apps/srs-spec/main.py`, `apps/srs-spec/src/notify.py` | TEST-OPS-002 | draft |
 | REQ-OPS-002 | `apps/issue-export/export_run.py`, `apps/issue-export/polarion_query_backup.py` | TEST-OPS-004 | verified (합성 입력) |
 | REQ-OBS-001 | `observation.py`, `run.py` | TEST-OBS-001 | verified (로컬 합성 입력) |
-| REQ-AUTO-001 | `docs/superpowers/specs/2026-09-21-full-automation-design.md` | TEST-AUTO-001 | approved design; implementation pending |
-| REQ-AUTO-002 | `docs/superpowers/specs/2026-09-21-full-automation-design.md` | TEST-AUTO-002 | approved design; implementation pending |
-| REQ-AUTO-003 | `docs/superpowers/specs/2026-09-21-full-automation-design.md` | TEST-AUTO-003 | approved design; implementation pending |
-| REQ-AUTO-004 | `docs/superpowers/specs/2026-09-21-full-automation-design.md` | TEST-AUTO-004 | approved design; implementation pending |
+| REQ-AUTO-001 | `automation.py`, `automation_core/orchestrator.py`, `automation_core/state.py`, `apps/srs-spec/main.py` | TEST-AUTO-001, `tests/test_automation_orchestrator.py`, `apps/srs-spec/tests/test_main_options.py` | verified (합성·로컬 입력) |
+| REQ-AUTO-002 | `automation_core/correlation.py`, `observation.py` | TEST-AUTO-002, `tests/test_automation_correlation.py`, `tests/test_observation.py` | verified (합성 입력) |
+| REQ-AUTO-003 | `automation_core/email.py`, `automation_core/state.py`, `apps/srs-spec/src/notify.py` | TEST-AUTO-003, `tests/test_automation_email.py`, `apps/srs-spec/tests/test_notify.py` | verified (합성 SMTP) |
+| REQ-AUTO-004 | `scripts/install_automation_task.ps1` | TEST-AUTO-004, `tests/test_automation_scheduler.py` | verified (계획·WhatIf); 실제 등록/첫 실행은 운영 확인 |
 | NFR-OPS-001 | `run.py`, `.gitignore` | TEST-OPS-003 | verified |
 | NFR-SEC-001 | `.gitignore`, `apps/srs-spec/.gitignore`, `apps/issue-export/.gitignore`, `apps/srs-spec/src/richtext.py` | TEST-SEC-001 | implemented |
 
@@ -436,4 +436,4 @@ verified의 범위는 11절과 검증 기록으로 한정한다.
 
 ## 14. 향후 개선 후보
 
-[완전 자동화 설계](docs/superpowers/specs/2026-09-21-full-automation-design.md)를 구현 기준으로 사용한다. 구현과 합성 검증을 완료해도 실제 서버 전체 수집·SMTP 수신·예약 장기 실행은 별도 운영 검증으로 남긴다.
+[완전 자동화 설계](docs/superpowers/specs/2026-09-21-full-automation-design.md)는 구현 근거로 유지한다. 실제 서버 전체 수집·SMTP 수신·첫 예약 실행과 장시간 복구는 [완전 자동화 검증 기록](docs/FULL_AUTOMATION_VALIDATION.md)의 운영 확인 항목으로 남긴다. 후보 품질이 실제 검토 결과와 축적되면 프로젝트별 상태·심각도 매핑과 알림 임계값을 조정한다.

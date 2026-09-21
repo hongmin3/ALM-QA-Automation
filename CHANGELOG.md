@@ -4,10 +4,6 @@
 
 ## [Unreleased]
 
-### Planned
-
-- REQ-AUTO-001~004: 평일 09:00 통합 수집, 명시 링크 기반 영향 분석·우선순위, 기존 SMTP 기반 영속 알림 대기함, 안전한 예약 작업 전환 설계를 승인 사양으로 추가.
-
 ### Removed
 
 - 통합 후 참조가 없는 완료 계획서 `docs/superpowers/plans/2026-09-21-integration.md` 제거. 실제 이행 근거는 `docs/INTEGRATION_VALIDATION.md`로 유지.
@@ -16,6 +12,10 @@
 
 ### Added
 
+- REQ-AUTO-001~004: SRS→이슈→분석→outbox→메일 통합 실행, 평일 09:00 예약 계획과 안전한 전환.
+- 정확한 Polarion ID 연계, CRITICAL/HIGH/MEDIUM 후보, 최초 기준선과 검토 상태 보존.
+- 기존 SRS SMTP 전송부를 재사용하는 PENDING/SENDING/SENT/FAILED 대기함, 내용 중복 방지와 수동 재대기.
+- `automation.py --check-schema/--check-local/--no-send/--retry-email`, 공통 메뉴의 완전 자동화 모드.
 - REQ-OBS-001: 오프라인 관찰 분석, 변경 전후 근거·후보·처리 상태와 실행 이력 저장.
 - REQ-OPS-002: 이슈 실행 잠금과 staging/previous/failed 출력, 결과 상태와 건수·PDF·이미지 실패 기록.
 - 합성 실패 주입·실제 renderer·동시 실행·관찰 후보 검증 테스트.
@@ -29,6 +29,8 @@
 ### Changed
 
 - README에 제품 사용 흐름과 AI 활용 개발 역량을 구분해 소개하고 SPEC/진행 상태/개선안을 동기화.
+- 관찰 상태 기본 위치를 `.automation/`으로 통합하고 기존 `.observation` 상태는 원본 보존 마이그레이션.
+- SRS 통합 실행은 `--no-mail`로 개별 메일을 생략하고 통합 요약 대기함만 사용.
 
 ## 2026-09-21 — 최초 기준 사양 (bce46c6)
 
