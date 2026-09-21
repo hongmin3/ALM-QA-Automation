@@ -192,6 +192,24 @@ def build_body(summary: dict) -> str:
 </div>"""
 
 
+def send_message(settings: MailSettings, message: EmailMessage) -> bool:
+    """Send an already-rendered message with the existing SMTP policy."""
+    if not settings.enabled or settings.missing_fields():
+        return False
+    try:
+        with smtplib.SMTP(settings.host, settings.port, timeout=settings.timeout_seconds) as server:
+            server.ehlo()
+            if settings.use_starttls:
+                server.starttls()
+                server.ehlo()
+            server.login(settings.user, settings.password)
+            server.send_message(message)
+    except (smtplib.SMTPException, OSError) as exc:
+        logger.warning("메일 발송 실패(자동화 결과에는 영향 없음): %s: %s", type(exc).__name__, exc)
+        return False
+    return True
+
+
 def send_run_report(settings: MailSettings, summary: dict, report_path: Path | None = None) -> bool:
     """실행 결과 메일을 보낸다. 실패해도 예외를 밖으로 던지지 않는다."""
     if not settings.enabled:
@@ -227,17 +245,7 @@ def send_run_report(settings: MailSettings, summary: dict, report_path: Path | N
             )
             logger.info("변경 리포트를 메일에 첨부했습니다: %s", report_path.name)
 
-    try:
-        with smtplib.SMTP(settings.host, settings.port, timeout=settings.timeout_seconds) as server:
-            server.ehlo()
-            if settings.use_starttls:
-                server.starttls()
-                server.ehlo()
-            server.login(settings.user, settings.password)
-            server.send_message(msg)
-    except (smtplib.SMTPException, OSError) as exc:
-        # 메일 발송 실패로 자동화를 실패시키지 않는다 - 사양서는 이미 반영되었을 수 있다.
-        logger.warning("메일 발송 실패(자동화 결과에는 영향 없음): %s: %s", type(exc).__name__, exc)
+    if not send_message(settings, msg):
         return False
 
     logger.info("실행 결과 메일 발송 완료: %s", ", ".join(settings.to_addrs))

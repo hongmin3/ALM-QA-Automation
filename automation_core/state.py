@@ -108,6 +108,19 @@ class AutomationStore:
         self.save_outbox(outbox)
         return message_id, True
 
+    def requeue(self, message_id: str) -> None:
+        outbox = self.load_outbox()
+        messages = outbox.get("messages", {})
+        item = messages.get(message_id) if isinstance(messages, dict) else None
+        if not isinstance(item, dict):
+            raise ValueError("unknown outbox message")
+        if item.get("status") not in {"FAILED", "SENDING"}:
+            raise ValueError("only FAILED or SENDING messages can be requeued")
+        item["status"] = "PENDING"
+        item["attempts"] = 0
+        item["nextAttemptAt"] = None
+        self.save_outbox(outbox)
+
     def save_run(self, run_id: str, manifest: dict, summary: str) -> Path:
         run_dir = self.root / "runs" / run_id
         run_dir.mkdir(parents=True, exist_ok=False)
