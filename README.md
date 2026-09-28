@@ -22,7 +22,7 @@ Polarion ALM에 흩어져 있는 수백 건의 SRS(Software Requirements Specifi
 **모든 명령은 프로젝트 폴더에서 실행합니다.**
 
 ```powershell
-cd "$env:USERPROFILE\Documents\자동화\ALM 사양서 최신화 크롤링"
+cd "$env:USERPROFILE\Documents\자동화\vxvue-srs-spec-automation"
 ```
 
 | 하고 싶은 일 | 명령 | 걸리는 시간 |
