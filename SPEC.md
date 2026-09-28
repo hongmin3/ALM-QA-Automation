@@ -127,6 +127,8 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 - 관련 구현: `apps/srs-spec/main.py`, `apps/srs-spec/src/validate.py`, `apps/srs-spec/src/publish.py`.
 - 관련 테스트: TEST-SRS-004. 모든 CLI 모드의 실제 운영 부작용까지 테스트 완료한 것은 아니다.
 
+> **참고** 강제 종료 복구의 제한은 9절에 적혀 있다.
+
 ### REQ-SRS-005 — 예약·잠금·만회 실행
 
 - 목적: 주간 실행을 유지하고 두 예약 트리거의 중복 실행을 방지한다.
@@ -179,6 +181,8 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 - 예외 처리: 실패한 실행은 이전 결과를 대체하지 않는다. 동시 출력 갱신은 잠금으로 차단한다. 예외/중단의 실행 폴더는 진단을 위해 보존한다.
 - 관련 구현: `apps/issue-export/polarion_query_backup.py`, `apps/issue-export/export_run.py`. 관련 테스트: TEST-OPS-004.
 
+> **참고** 검증 범위: 합성 입력.
+
 ### REQ-OBS-001 — 알림 없는 관찰 분석
 
 - 입력: 명시적으로 지정한 SRS 스냅샷과 이슈 실행 결과, 선택적 이전 SRS 스냅샷, 관찰 상태 저장 경로.
@@ -186,6 +190,8 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 - 기대 결과: 관찰 실행 결과와 후보 목록, 후보 처리 상태가 로컬에 남는다. 네트워크·배포·알림 발송은 하지 않는다. 첫 실행은 기준선으로 명시한다.
 - 예외 처리: 입력 오류는 비정상 종료하고 기존 관찰 상태를 훼손하지 않는다. 부분 수집을 근거로 삭제 후보를 만들지 않는다.
 - 관련 구현: `observation.py`, `automation_core/state.py`, `run.py`. 관련 테스트: TEST-OBS-001. 관찰 명령 자체는 네트워크와 발송을 수행하지 않는다.
+
+> **참고** 검증 범위: 로컬 합성 입력.
 
 ### REQ-AUTO-001 — 통합 수집 오케스트레이션
 
@@ -195,6 +201,8 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 - 예외 처리: 설정 오류 2, 필수 데이터 단계 실패 1, 알림 대기/잠금 충돌 4, 전체 성공 0. 원문·비밀값·외부 오류 전문은 manifest에 기록하지 않는다.
 - 관련 구현: `automation.py`, `automation_core/orchestrator.py`, `automation_core/state.py`, `apps/srs-spec/main.py`. 관련 테스트: TEST-AUTO-001.
 
+> **참고** 검증 범위: 합성·로컬 입력.
+
 ### REQ-AUTO-002 — SRS·이슈 연계와 검토 우선순위
 
 - 입력: 완전한 SRS 스냅샷, 성공 이슈 manifest와 backup, 기존 후보 상태, 중요도 설정.
@@ -202,6 +210,8 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 - 기대 결과: 후보마다 선정 이유, 연결 방향·ID, 이슈가 기간 조건을 충족한 필드, SRS `updated` 구간, 상태 변화, 변경 버전, 원문 경로를 보존한다. 같은 변경 버전과 연결 집합은 중복 후보가 아니며 기존 검토 상태를 유지한다.
 - 예외 처리: 제목·키워드 유사도로 연계하지 않는다. 알 수 없는 상태·심각도는 임의 상향하지 않고 MEDIUM으로 기록한다. 입력 누락을 삭제로 추정하지 않는다.
 - 관련 구현: `automation_core/correlation.py`, `automation_core/state.py`, `observation.py`. 관련 테스트: TEST-AUTO-002.
+
+> **참고** 검증 범위: 합성 입력.
 
 ### REQ-AUTO-003 — 영속 이메일 대기함과 재시도
 
@@ -211,6 +221,8 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 - 예외 처리: 3회 실패는 FAILED로 남기고 수동 재전송할 수 있다. SENDING 중 프로세스 종료는 전달 여부가 모호하므로 자동 재전송하지 않고 수동 확인 대상으로 남긴다. 비활성/불완전 SMTP 설정은 외부 연결 전에 로컬 점검에서 실패한다.
 - 관련 구현: `automation_core/email.py`, `automation_core/state.py`, `apps/srs-spec/src/notify.py`. 관련 테스트: TEST-AUTO-003.
 
+> **참고** 검증 범위: 합성 SMTP.
+
 ### REQ-AUTO-004 — 평일 통합 예약 작업과 안전한 전환
 
 - 입력: 작업 이름 `ALM_QA_Automation_Daily`, 평일 09:00, Python과 프로젝트 경로.
@@ -218,6 +230,8 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 - 기대 결과: 월~금 09:00, StartWhenAvailable, 네트워크 필요, IgnoreNew, 제한 실행 시간, 보통 우선순위가 설정된다. 기존 작업은 삭제하지 않아 복구할 수 있다.
 - 예외 처리: 등록 또는 재조회 검증 실패 시 기존 작업 상태를 바꾸지 않는다. 실제 설치 전 `-WhatIf`는 시스템 상태를 변경하지 않는다.
 - 관련 구현: `scripts/install_automation_task.ps1`. 관련 테스트: TEST-AUTO-004.
+
+> **참고** 검증 범위: 계획·실제 등록 재조회. 첫 실제 데이터 실행은 운영 확인.
 
 ## 6. 비기능 요구사항
 
@@ -411,17 +425,17 @@ PAT와 SMTP 자격증명은 환경변수 또는 Git 제외 운영 설정에서�
 | REQ-SRS-001 | `apps/srs-spec/src/collector.py`, `apps/srs-spec/src/richtext.py`, `apps/srs-spec/src/snapshot_store.py` | TEST-SRS-001 | implemented |
 | REQ-SRS-002 | `apps/srs-spec/src/partition.py`, `apps/srs-spec/src/pdf.py`, `apps/srs-spec/src/render_recovery.py` | TEST-SRS-002, TEST-OPS-001 | implemented |
 | REQ-SRS-003 | `apps/srs-spec/src/diff.py`, `apps/srs-spec/src/report.py`, `apps/srs-spec/src/period_report.py` | TEST-SRS-003 | implemented |
-| REQ-SRS-004 | `apps/srs-spec/main.py`, `apps/srs-spec/src/validate.py`, `apps/srs-spec/src/publish.py` | TEST-SRS-004 | implemented (강제 종료 복구 제한은 9절) |
+| REQ-SRS-004 | `apps/srs-spec/main.py`, `apps/srs-spec/src/validate.py`, `apps/srs-spec/src/publish.py` | TEST-SRS-004 | implemented |
 | REQ-SRS-005 | `apps/srs-spec/scripts/install_task.ps1`, `apps/srs-spec/src/run_lock.py`, `apps/srs-spec/src/run_marker.py` | TEST-SRS-005 | implemented |
 | REQ-ISSUE-001 | `apps/issue-export/polarion_query_backup.py` | TEST-ISSUE-001 | implemented |
 | REQ-ISSUE-002 | `apps/issue-export/polarion_query_backup.py`, `run.py` | TEST-ISSUE-001, TEST-OPS-001 | implemented |
 | REQ-OPS-001 | `apps/issue-export/polarion_query_backup.py`, `apps/srs-spec/main.py`, `apps/srs-spec/src/notify.py` | TEST-OPS-002 | draft |
-| REQ-OPS-002 | `apps/issue-export/export_run.py`, `apps/issue-export/polarion_query_backup.py` | TEST-OPS-004 | verified (합성 입력) |
-| REQ-OBS-001 | `observation.py`, `run.py` | TEST-OBS-001 | verified (로컬 합성 입력) |
-| REQ-AUTO-001 | `automation.py`, `automation_core/orchestrator.py`, `automation_core/state.py`, `apps/srs-spec/main.py` | TEST-AUTO-001, `tests/test_automation_orchestrator.py`, `apps/srs-spec/tests/test_main_options.py` | verified (합성·로컬 입력) |
-| REQ-AUTO-002 | `automation_core/correlation.py`, `observation.py` | TEST-AUTO-002, `tests/test_automation_correlation.py`, `tests/test_observation.py` | verified (합성 입력) |
-| REQ-AUTO-003 | `automation_core/email.py`, `automation_core/state.py`, `apps/srs-spec/src/notify.py` | TEST-AUTO-003, `tests/test_automation_email.py`, `apps/srs-spec/tests/test_notify.py` | verified (합성 SMTP) |
-| REQ-AUTO-004 | `scripts/install_automation_task.ps1` | TEST-AUTO-004, `tests/test_automation_scheduler.py` | verified (계획·실제 등록 재조회); 첫 실제 데이터 실행은 운영 확인 |
+| REQ-OPS-002 | `apps/issue-export/export_run.py`, `apps/issue-export/polarion_query_backup.py` | TEST-OPS-004 | verified |
+| REQ-OBS-001 | `observation.py`, `run.py` | TEST-OBS-001 | verified |
+| REQ-AUTO-001 | `automation.py`, `automation_core/orchestrator.py`, `automation_core/state.py`, `apps/srs-spec/main.py` | TEST-AUTO-001, `tests/test_automation_orchestrator.py`, `apps/srs-spec/tests/test_main_options.py` | verified |
+| REQ-AUTO-002 | `automation_core/correlation.py`, `observation.py` | TEST-AUTO-002, `tests/test_automation_correlation.py`, `tests/test_observation.py` | verified |
+| REQ-AUTO-003 | `automation_core/email.py`, `automation_core/state.py`, `apps/srs-spec/src/notify.py` | TEST-AUTO-003, `tests/test_automation_email.py`, `apps/srs-spec/tests/test_notify.py` | verified |
+| REQ-AUTO-004 | `scripts/install_automation_task.ps1` | TEST-AUTO-004, `tests/test_automation_scheduler.py` | verified |
 | NFR-OPS-001 | `run.py`, `.gitignore` | TEST-OPS-003 | verified |
 | NFR-SEC-001 | `.gitignore`, `apps/srs-spec/.gitignore`, `apps/issue-export/.gitignore`, `apps/srs-spec/src/richtext.py` | TEST-SEC-001 | implemented |
 

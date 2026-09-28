@@ -28,6 +28,8 @@
 
 ### Changed
 
+- REQ-SRS-004 / REQ-OPS-002 / REQ-OBS-001 / REQ-AUTO-001 / REQ-AUTO-002 / REQ-AUTO-003 / REQ-AUTO-004: 추적성 표 Status 칸에는 값(`verified`·`implemented`)만 남기고, 함께 적혀 있던 검증 범위 설명은 각 요구사항 절의 `참고` 상자로 옮겼다(공통 키트 workflow v6). 사양 내용은 바꾸지 않았다.
+- 다른 저장소(옛 vxvue-srs-spec-automation 사본)에서 잘못 push된 병합이 들여온 `tests/test_run_lock.py`와 옛 Akela 기록 줄을 되돌렸다.
 - README에 제품 사용 흐름과 AI 활용 개발 역량을 구분해 소개하고 SPEC/진행 상태/개선안을 동기화.
 - 관찰 상태 기본 위치를 `.automation/`으로 통합하고 기존 `.observation` 상태는 원본 보존 마이그레이션.
 - SRS 통합 실행은 `--no-mail`로 개별 메일을 생략하고 통합 요약 대기함만 사용.

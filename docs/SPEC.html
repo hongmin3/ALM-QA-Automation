@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="generator" content="botyard render-spec-html v6">
 <meta name="spec-html-renderer" content="v6">
-<meta name="spec-source-sha256" content="e49b210cba5579f8dc360d8c529700365d1d704cce3a2e4d5ad37ac6ce46249f">
+<meta name="spec-source-sha256" content="7b659d4ae2db2425d9c8f51b514ee103446679331db1ba1e2e9214f2da549fcc">
 <title>ALM-QA-Automation 사양서</title>
 <style>:root{--bg:#f7f8fa;--panel:#fff;--text:#1d2330;--muted:#5d6678;--line:#e2e6ee;--accent:#2f6fde;--code:#f1f3f7;
 --req:#2f6fde;--nfr:#8a4fd8;--test:#15907a;--draft:#8a93a6;--implemented:#c98a12;--verified:#1f9d55;--deprecated:#c2413a;--active:#2f6fde;
@@ -89,7 +89,7 @@ footer{max-width:1280px;margin:0 auto;padding:8px 32px 40px;color:var(--muted);f
 <header class="top">
 <h1>ALM-QA-Automation 사양서</h1>
 <div class="chips"><span class="chip"><span>Document Version</span><b>1.3.0</b></span><span class="chip"><span>Project Version</span><b>완전 자동화 구현 (합성·로컬 검증 완료)</b></span><span class="chip"><span>Last Updated</span><b>2026-09-21</b></span><span class="chip"><span>Status</span><b>implemented — 합성·로컬 검증 완료; 실제 서버·SMTP·예약 첫 실행은 운영 검증 별도</b></span><span class="chip"><span>Owner</span><b>프로젝트 운영자</b></span></div>
-<div class="stats"><div class="stat"><b>16</b><span>기능 요구사항 REQ</span></div><div class="stat"><b>2</b><span>비기능 NFR</span></div><div class="stat"><b>17</b><span>테스트 TEST</span></div><div class="stat st-draft"><b>1</b><span>draft</span></div><div class="stat st-implemented"><b>8</b><span>implemented</span></div><div class="stat st-verified"><b>2</b><span>verified</span></div></div>
+<div class="stats"><div class="stat"><b>16</b><span>기능 요구사항 REQ</span></div><div class="stat"><b>2</b><span>비기능 NFR</span></div><div class="stat"><b>17</b><span>테스트 TEST</span></div><div class="stat st-draft"><b>1</b><span>draft</span></div><div class="stat st-implemented"><b>9</b><span>implemented</span></div><div class="stat st-verified"><b>8</b><span>verified</span></div></div>
 </header>
 <div class="layout">
 <nav class="toc" aria-label="목차">
@@ -158,21 +158,21 @@ footer{max-width:1280px;margin:0 auto;padding:8px 32px 40px;color:var(--muted);f
 <tr><td><a class="idref" href="#REQ-SRS-001">REQ-SRS-001</a></td><td>— 수집과 원본 스냅샷</td><td><span class="badge st-implemented">implemented</span></td><td><code>apps/srs-spec/src/collector.py</code>, <code>apps/srs-spec/src/richtext.py</code>, <code>apps/srs-spec/src/snapshot_store.py</code></td><td><a class="idref" href="#TEST-SRS-001">TEST-SRS-001</a></td></tr>
 <tr><td><a class="idref" href="#REQ-SRS-002">REQ-SRS-002</a></td><td>— 안정적 분할과 PDF 복구</td><td><span class="badge st-implemented">implemented</span></td><td><code>apps/srs-spec/src/partition.py</code>, <code>apps/srs-spec/src/pdf.py</code>, <code>apps/srs-spec/src/render_recovery.py</code></td><td><a class="idref" href="#TEST-SRS-002">TEST-SRS-002</a>, <a class="idref" href="#TEST-OPS-001">TEST-OPS-001</a></td></tr>
 <tr><td><a class="idref" href="#REQ-SRS-003">REQ-SRS-003</a></td><td>— 변경 비교와 기간 리포트</td><td><span class="badge st-implemented">implemented</span></td><td><code>apps/srs-spec/src/diff.py</code>, <code>apps/srs-spec/src/report.py</code>, <code>apps/srs-spec/src/period_report.py</code></td><td><a class="idref" href="#TEST-SRS-003">TEST-SRS-003</a></td></tr>
-<tr><td><a class="idref" href="#REQ-SRS-004">REQ-SRS-004</a></td><td>— 검증 후 배포와 모드 분리</td><td></td><td><code>apps/srs-spec/main.py</code>, <code>apps/srs-spec/src/validate.py</code>, <code>apps/srs-spec/src/publish.py</code></td><td><a class="idref" href="#TEST-SRS-004">TEST-SRS-004</a></td></tr>
+<tr><td><a class="idref" href="#REQ-SRS-004">REQ-SRS-004</a></td><td>— 검증 후 배포와 모드 분리</td><td><span class="badge st-implemented">implemented</span></td><td><code>apps/srs-spec/main.py</code>, <code>apps/srs-spec/src/validate.py</code>, <code>apps/srs-spec/src/publish.py</code></td><td><a class="idref" href="#TEST-SRS-004">TEST-SRS-004</a></td></tr>
 <tr><td><a class="idref" href="#REQ-SRS-005">REQ-SRS-005</a></td><td>— 예약·잠금·만회 실행</td><td><span class="badge st-implemented">implemented</span></td><td><code>apps/srs-spec/scripts/install_task.ps1</code>, <code>apps/srs-spec/src/run_lock.py</code>, <code>apps/srs-spec/src/run_marker.py</code></td><td><a class="idref" href="#TEST-SRS-005">TEST-SRS-005</a></td></tr>
 <tr class="group"><th colspan="5"><span class="gcode">ISSUE</span></th></tr>
 <tr><td><a class="idref" href="#REQ-ISSUE-001">REQ-ISSUE-001</a></td><td>— 이슈 대상 지정과 수집</td><td><span class="badge st-implemented">implemented</span></td><td><code>apps/issue-export/polarion_query_backup.py</code></td><td><a class="idref" href="#TEST-ISSUE-001">TEST-ISSUE-001</a></td></tr>
 <tr><td><a class="idref" href="#REQ-ISSUE-002">REQ-ISSUE-002</a></td><td>— 문서 생성과 보존</td><td><span class="badge st-implemented">implemented</span></td><td><code>apps/issue-export/polarion_query_backup.py</code>, <code>run.py</code></td><td><a class="idref" href="#TEST-ISSUE-001">TEST-ISSUE-001</a>, <a class="idref" href="#TEST-OPS-001">TEST-OPS-001</a></td></tr>
 <tr class="group"><th colspan="5"><span class="gcode">OPS</span></th></tr>
 <tr><td><a class="idref" href="#REQ-OPS-001">REQ-OPS-001</a></td><td>— 결과 상태와 알림의 신뢰성</td><td><span class="badge st-draft">draft</span></td><td><code>apps/issue-export/polarion_query_backup.py</code>, <code>apps/srs-spec/main.py</code>, <code>apps/srs-spec/src/notify.py</code></td><td><a class="idref" href="#TEST-OPS-002">TEST-OPS-002</a></td></tr>
-<tr><td><a class="idref" href="#REQ-OPS-002">REQ-OPS-002</a></td><td>— 이슈 실행 결과와 안전한 결과 확정</td><td></td><td><code>apps/issue-export/export_run.py</code>, <code>apps/issue-export/polarion_query_backup.py</code></td><td><a class="idref" href="#TEST-OPS-004">TEST-OPS-004</a></td></tr>
+<tr><td><a class="idref" href="#REQ-OPS-002">REQ-OPS-002</a></td><td>— 이슈 실행 결과와 안전한 결과 확정</td><td><span class="badge st-verified">verified</span></td><td><code>apps/issue-export/export_run.py</code>, <code>apps/issue-export/polarion_query_backup.py</code></td><td><a class="idref" href="#TEST-OPS-004">TEST-OPS-004</a></td></tr>
 <tr class="group"><th colspan="5"><span class="gcode">OBS</span></th></tr>
-<tr><td><a class="idref" href="#REQ-OBS-001">REQ-OBS-001</a></td><td>— 알림 없는 관찰 분석</td><td></td><td><code>observation.py</code>, <code>run.py</code></td><td><a class="idref" href="#TEST-OBS-001">TEST-OBS-001</a></td></tr>
+<tr><td><a class="idref" href="#REQ-OBS-001">REQ-OBS-001</a></td><td>— 알림 없는 관찰 분석</td><td><span class="badge st-verified">verified</span></td><td><code>observation.py</code>, <code>run.py</code></td><td><a class="idref" href="#TEST-OBS-001">TEST-OBS-001</a></td></tr>
 <tr class="group"><th colspan="5"><span class="gcode">AUTO</span></th></tr>
-<tr><td><a class="idref" href="#REQ-AUTO-001">REQ-AUTO-001</a></td><td>— 통합 수집 오케스트레이션</td><td></td><td><code>automation.py</code>, <code>automation_core/orchestrator.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/main.py</code></td><td><a class="idref" href="#TEST-AUTO-001">TEST-AUTO-001</a>, <code>tests/test_automation_orchestrator.py</code>, <code>apps/srs-spec/tests/test_main_options.py</code></td></tr>
-<tr><td><a class="idref" href="#REQ-AUTO-002">REQ-AUTO-002</a></td><td>— SRS·이슈 연계와 검토 우선순위</td><td></td><td><code>automation_core/correlation.py</code>, <code>observation.py</code></td><td><a class="idref" href="#TEST-AUTO-002">TEST-AUTO-002</a>, <code>tests/test_automation_correlation.py</code>, <code>tests/test_observation.py</code></td></tr>
-<tr><td><a class="idref" href="#REQ-AUTO-003">REQ-AUTO-003</a></td><td>— 영속 이메일 대기함과 재시도</td><td></td><td><code>automation_core/email.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/src/notify.py</code></td><td><a class="idref" href="#TEST-AUTO-003">TEST-AUTO-003</a>, <code>tests/test_automation_email.py</code>, <code>apps/srs-spec/tests/test_notify.py</code></td></tr>
-<tr><td><a class="idref" href="#REQ-AUTO-004">REQ-AUTO-004</a></td><td>— 평일 통합 예약 작업과 안전한 전환</td><td></td><td><code>scripts/install_automation_task.ps1</code></td><td><a class="idref" href="#TEST-AUTO-004">TEST-AUTO-004</a>, <code>tests/test_automation_scheduler.py</code></td></tr>
+<tr><td><a class="idref" href="#REQ-AUTO-001">REQ-AUTO-001</a></td><td>— 통합 수집 오케스트레이션</td><td><span class="badge st-verified">verified</span></td><td><code>automation.py</code>, <code>automation_core/orchestrator.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/main.py</code></td><td><a class="idref" href="#TEST-AUTO-001">TEST-AUTO-001</a>, <code>tests/test_automation_orchestrator.py</code>, <code>apps/srs-spec/tests/test_main_options.py</code></td></tr>
+<tr><td><a class="idref" href="#REQ-AUTO-002">REQ-AUTO-002</a></td><td>— SRS·이슈 연계와 검토 우선순위</td><td><span class="badge st-verified">verified</span></td><td><code>automation_core/correlation.py</code>, <code>observation.py</code></td><td><a class="idref" href="#TEST-AUTO-002">TEST-AUTO-002</a>, <code>tests/test_automation_correlation.py</code>, <code>tests/test_observation.py</code></td></tr>
+<tr><td><a class="idref" href="#REQ-AUTO-003">REQ-AUTO-003</a></td><td>— 영속 이메일 대기함과 재시도</td><td><span class="badge st-verified">verified</span></td><td><code>automation_core/email.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/src/notify.py</code></td><td><a class="idref" href="#TEST-AUTO-003">TEST-AUTO-003</a>, <code>tests/test_automation_email.py</code>, <code>apps/srs-spec/tests/test_notify.py</code></td></tr>
+<tr><td><a class="idref" href="#REQ-AUTO-004">REQ-AUTO-004</a></td><td>— 평일 통합 예약 작업과 안전한 전환</td><td><span class="badge st-verified">verified</span></td><td><code>scripts/install_automation_task.ps1</code></td><td><a class="idref" href="#TEST-AUTO-004">TEST-AUTO-004</a>, <code>tests/test_automation_scheduler.py</code></td></tr>
 <tr class="group"><th colspan="5"><span class="gcode">NFR OPS</span></th></tr>
 <tr><td><a class="idref" href="#NFR-OPS-001">NFR-OPS-001</a></td><td>— 기존 기능·데이터·이력 보존</td><td><span class="badge st-verified">verified</span></td><td><code>run.py</code>, <code>.gitignore</code></td><td><a class="idref" href="#TEST-OPS-003">TEST-OPS-003</a></td></tr>
 <tr class="group"><th colspan="5"><span class="gcode">NFR SEC</span></th></tr>
@@ -324,10 +324,11 @@ footer{max-width:1280px;margin:0 auto;padding:8px 32px 40px;color:var(--muted);f
 </section>
 <section class="card kind-req" id="REQ-SRS-004">
 <h3><span class="idtag">REQ-SRS-004</span> — 검증 후 배포와 모드 분리</h3>
-<div class="card-meta"><span class="meta"><b>구현</b> <code>apps/srs-spec/main.py</code>, <code>apps/srs-spec/src/validate.py</code>, <code>apps/srs-spec/src/publish.py</code></span><span class="meta"><b>테스트</b> <a class="idref" href="#TEST-SRS-004">TEST-SRS-004</a></span><span class="meta"><b>참조됨</b> <a class="idref" href="#TEST-SRS-004">TEST-SRS-004</a></span></div>
-<details class="history"><summary>변경 이력 1</summary>
+<div class="card-meta"><span class="badge st-implemented">implemented</span><span class="meta"><b>구현</b> <code>apps/srs-spec/main.py</code>, <code>apps/srs-spec/src/validate.py</code>, <code>apps/srs-spec/src/publish.py</code></span><span class="meta"><b>테스트</b> <a class="idref" href="#TEST-SRS-004">TEST-SRS-004</a></span><span class="meta"><b>참조됨</b> <a class="idref" href="#TEST-SRS-004">TEST-SRS-004</a></span></div>
+<details class="history"><summary>변경 이력 2</summary>
 <ul>
 <li><span class="hist">[Unreleased] · Fixed</span> <a class="idref" href="#REQ-SRS-004">REQ-SRS-004</a>: 수집/배정 UID 대조와 검증 옵션 연결, 배포 I/O 오류 롤백·복구 사본, 성공 후 ORG 정리.</li>
+<li><span class="hist">[Unreleased] · Changed</span> <a class="idref" href="#REQ-SRS-004">REQ-SRS-004</a> / <a class="idref" href="#REQ-OPS-002">REQ-OPS-002</a> / <a class="idref" href="#REQ-OBS-001">REQ-OBS-001</a> / <a class="idref" href="#REQ-AUTO-001">REQ-AUTO-001</a> / <a class="idref" href="#REQ-AUTO-002">REQ-AUTO-002</a> / <a class="idref" href="#REQ-AUTO-003">REQ-AUTO-003</a> / <a class="idref" href="#REQ-AUTO-004">REQ-AUTO-004</a>: 추적성 표 Status 칸에는 값(<code>verified</code>·<code>implemented</code>)만 남기고, 함께 적혀 있던 검증 범위 설명은 각 요구사항 절의 <code>참고</code> 상자로 옮겼다(공통 키트 workflow v6). 사양 내용은 바꾸지 않았다.</li>
 </ul>
 </details>
 <ul>
@@ -340,6 +341,9 @@ footer{max-width:1280px;margin:0 auto;padding:8px 32px 40px;color:var(--muted);f
 <li>관련 구현: <code>apps/srs-spec/main.py</code>, <code>apps/srs-spec/src/validate.py</code>, <code>apps/srs-spec/src/publish.py</code>.</li>
 <li>관련 테스트: <a class="idref" href="#TEST-SRS-004">TEST-SRS-004</a>. 모든 CLI 모드의 실제 운영 부작용까지 테스트 완료한 것은 아니다.</li>
 </ul>
+<aside class="callout callout-info"><span class="callout-label">참고</span>
+<p>강제 종료 복구의 제한은 9절에 적혀 있다.</p>
+</aside>
 </section>
 <section class="card kind-req" id="REQ-SRS-005">
 <h3><span class="idtag">REQ-SRS-005</span> — 예약·잠금·만회 실행</h3>
@@ -419,10 +423,11 @@ footer{max-width:1280px;margin:0 auto;padding:8px 32px 40px;color:var(--muted);f
 </section>
 <section class="card kind-req" id="REQ-OPS-002">
 <h3><span class="idtag">REQ-OPS-002</span> — 이슈 실행 결과와 안전한 결과 확정</h3>
-<div class="card-meta"><span class="meta"><b>구현</b> <code>apps/issue-export/export_run.py</code>, <code>apps/issue-export/polarion_query_backup.py</code></span><span class="meta"><b>테스트</b> <a class="idref" href="#TEST-OPS-004">TEST-OPS-004</a></span><span class="meta"><b>참조됨</b> <a class="idref" href="#REQ-OPS-001">REQ-OPS-001</a>, <a class="idref" href="#TEST-OPS-004">TEST-OPS-004</a></span></div>
-<details class="history"><summary>변경 이력 1</summary>
+<div class="card-meta"><span class="badge st-verified">verified</span><span class="meta"><b>구현</b> <code>apps/issue-export/export_run.py</code>, <code>apps/issue-export/polarion_query_backup.py</code></span><span class="meta"><b>테스트</b> <a class="idref" href="#TEST-OPS-004">TEST-OPS-004</a></span><span class="meta"><b>참조됨</b> <a class="idref" href="#REQ-OPS-001">REQ-OPS-001</a>, <a class="idref" href="#TEST-OPS-004">TEST-OPS-004</a></span></div>
+<details class="history"><summary>변경 이력 2</summary>
 <ul>
 <li><span class="hist">[Unreleased] · Added</span> <a class="idref" href="#REQ-OPS-002">REQ-OPS-002</a>: 이슈 실행 잠금과 staging/previous/failed 출력, 결과 상태와 건수·PDF·이미지 실패 기록.</li>
+<li><span class="hist">[Unreleased] · Changed</span> <a class="idref" href="#REQ-SRS-004">REQ-SRS-004</a> / <a class="idref" href="#REQ-OPS-002">REQ-OPS-002</a> / <a class="idref" href="#REQ-OBS-001">REQ-OBS-001</a> / <a class="idref" href="#REQ-AUTO-001">REQ-AUTO-001</a> / <a class="idref" href="#REQ-AUTO-002">REQ-AUTO-002</a> / <a class="idref" href="#REQ-AUTO-003">REQ-AUTO-003</a> / <a class="idref" href="#REQ-AUTO-004">REQ-AUTO-004</a>: 추적성 표 Status 칸에는 값(<code>verified</code>·<code>implemented</code>)만 남기고, 함께 적혀 있던 검증 범위 설명은 각 요구사항 절의 <code>참고</code> 상자로 옮겼다(공통 키트 workflow v6). 사양 내용은 바꾸지 않았다.</li>
 </ul>
 </details>
 <ul>
@@ -432,13 +437,17 @@ footer{max-width:1280px;margin:0 auto;padding:8px 32px 40px;color:var(--muted);f
 <li>예외 처리: 실패한 실행은 이전 결과를 대체하지 않는다. 동시 출력 갱신은 잠금으로 차단한다. 예외/중단의 실행 폴더는 진단을 위해 보존한다.</li>
 <li>관련 구현: <code>apps/issue-export/polarion_query_backup.py</code>, <code>apps/issue-export/export_run.py</code>. 관련 테스트: <a class="idref" href="#TEST-OPS-004">TEST-OPS-004</a>.</li>
 </ul>
+<aside class="callout callout-info"><span class="callout-label">참고</span>
+<p>검증 범위: 합성 입력.</p>
+</aside>
 </section>
 <section class="card kind-req" id="REQ-OBS-001">
 <h3><span class="idtag">REQ-OBS-001</span> — 알림 없는 관찰 분석</h3>
-<div class="card-meta"><span class="meta"><b>구현</b> <code>observation.py</code>, <code>run.py</code></span><span class="meta"><b>테스트</b> <a class="idref" href="#TEST-OBS-001">TEST-OBS-001</a></span><span class="meta"><b>참조됨</b> <a class="idref" href="#TEST-OBS-001">TEST-OBS-001</a></span></div>
-<details class="history"><summary>변경 이력 1</summary>
+<div class="card-meta"><span class="badge st-verified">verified</span><span class="meta"><b>구현</b> <code>observation.py</code>, <code>run.py</code></span><span class="meta"><b>테스트</b> <a class="idref" href="#TEST-OBS-001">TEST-OBS-001</a></span><span class="meta"><b>참조됨</b> <a class="idref" href="#TEST-OBS-001">TEST-OBS-001</a></span></div>
+<details class="history"><summary>변경 이력 2</summary>
 <ul>
 <li><span class="hist">[Unreleased] · Added</span> <a class="idref" href="#REQ-OBS-001">REQ-OBS-001</a>: 오프라인 관찰 분석, 변경 전후 근거·후보·처리 상태와 실행 이력 저장.</li>
+<li><span class="hist">[Unreleased] · Changed</span> <a class="idref" href="#REQ-SRS-004">REQ-SRS-004</a> / <a class="idref" href="#REQ-OPS-002">REQ-OPS-002</a> / <a class="idref" href="#REQ-OBS-001">REQ-OBS-001</a> / <a class="idref" href="#REQ-AUTO-001">REQ-AUTO-001</a> / <a class="idref" href="#REQ-AUTO-002">REQ-AUTO-002</a> / <a class="idref" href="#REQ-AUTO-003">REQ-AUTO-003</a> / <a class="idref" href="#REQ-AUTO-004">REQ-AUTO-004</a>: 추적성 표 Status 칸에는 값(<code>verified</code>·<code>implemented</code>)만 남기고, 함께 적혀 있던 검증 범위 설명은 각 요구사항 절의 <code>참고</code> 상자로 옮겼다(공통 키트 workflow v6). 사양 내용은 바꾸지 않았다.</li>
 </ul>
 </details>
 <ul>
@@ -448,13 +457,17 @@ footer{max-width:1280px;margin:0 auto;padding:8px 32px 40px;color:var(--muted);f
 <li>예외 처리: 입력 오류는 비정상 종료하고 기존 관찰 상태를 훼손하지 않는다. 부분 수집을 근거로 삭제 후보를 만들지 않는다.</li>
 <li>관련 구현: <code>observation.py</code>, <code>automation_core/state.py</code>, <code>run.py</code>. 관련 테스트: <a class="idref" href="#TEST-OBS-001">TEST-OBS-001</a>. 관찰 명령 자체는 네트워크와 발송을 수행하지 않는다.</li>
 </ul>
+<aside class="callout callout-info"><span class="callout-label">참고</span>
+<p>검증 범위: 로컬 합성 입력.</p>
+</aside>
 </section>
 <section class="card kind-req" id="REQ-AUTO-001">
 <h3><span class="idtag">REQ-AUTO-001</span> — 통합 수집 오케스트레이션</h3>
-<div class="card-meta"><span class="meta"><b>구현</b> <code>automation.py</code>, <code>automation_core/orchestrator.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/main.py</code></span><span class="meta"><b>테스트</b> <a class="idref" href="#TEST-AUTO-001">TEST-AUTO-001</a>, <code>tests/test_automation_orchestrator.py</code>, <code>apps/srs-spec/tests/test_main_options.py</code></span><span class="meta"><b>참조됨</b> <a class="idref" href="#TEST-AUTO-001">TEST-AUTO-001</a></span></div>
-<details class="history"><summary>변경 이력 1</summary>
+<div class="card-meta"><span class="badge st-verified">verified</span><span class="meta"><b>구현</b> <code>automation.py</code>, <code>automation_core/orchestrator.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/main.py</code></span><span class="meta"><b>테스트</b> <a class="idref" href="#TEST-AUTO-001">TEST-AUTO-001</a>, <code>tests/test_automation_orchestrator.py</code>, <code>apps/srs-spec/tests/test_main_options.py</code></span><span class="meta"><b>참조됨</b> <a class="idref" href="#TEST-AUTO-001">TEST-AUTO-001</a></span></div>
+<details class="history"><summary>변경 이력 2</summary>
 <ul>
 <li><span class="hist">[Unreleased] · Added</span> <a class="idref" href="#REQ-AUTO-001">REQ-AUTO-001</a>~004: SRS→이슈→분석→outbox→메일 통합 실행, 평일 09:00 예약 계획과 안전한 전환.</li>
+<li><span class="hist">[Unreleased] · Changed</span> <a class="idref" href="#REQ-SRS-004">REQ-SRS-004</a> / <a class="idref" href="#REQ-OPS-002">REQ-OPS-002</a> / <a class="idref" href="#REQ-OBS-001">REQ-OBS-001</a> / <a class="idref" href="#REQ-AUTO-001">REQ-AUTO-001</a> / <a class="idref" href="#REQ-AUTO-002">REQ-AUTO-002</a> / <a class="idref" href="#REQ-AUTO-003">REQ-AUTO-003</a> / <a class="idref" href="#REQ-AUTO-004">REQ-AUTO-004</a>: 추적성 표 Status 칸에는 값(<code>verified</code>·<code>implemented</code>)만 남기고, 함께 적혀 있던 검증 범위 설명은 각 요구사항 절의 <code>참고</code> 상자로 옮겼다(공통 키트 workflow v6). 사양 내용은 바꾸지 않았다.</li>
 </ul>
 </details>
 <ul>
@@ -464,10 +477,18 @@ footer{max-width:1280px;margin:0 auto;padding:8px 32px 40px;color:var(--muted);f
 <li>예외 처리: 설정 오류 2, 필수 데이터 단계 실패 1, 알림 대기/잠금 충돌 4, 전체 성공 0. 원문·비밀값·외부 오류 전문은 manifest에 기록하지 않는다.</li>
 <li>관련 구현: <code>automation.py</code>, <code>automation_core/orchestrator.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/main.py</code>. 관련 테스트: <a class="idref" href="#TEST-AUTO-001">TEST-AUTO-001</a>.</li>
 </ul>
+<aside class="callout callout-info"><span class="callout-label">참고</span>
+<p>검증 범위: 합성·로컬 입력.</p>
+</aside>
 </section>
 <section class="card kind-req" id="REQ-AUTO-002">
 <h3><span class="idtag">REQ-AUTO-002</span> — SRS·이슈 연계와 검토 우선순위</h3>
-<div class="card-meta"><span class="meta"><b>구현</b> <code>automation_core/correlation.py</code>, <code>observation.py</code></span><span class="meta"><b>테스트</b> <a class="idref" href="#TEST-AUTO-002">TEST-AUTO-002</a>, <code>tests/test_automation_correlation.py</code>, <code>tests/test_observation.py</code></span><span class="meta"><b>참조됨</b> <a class="idref" href="#TEST-AUTO-002">TEST-AUTO-002</a></span><span class="meta nohist"><b>변경 이력</b> CHANGELOG에 이 ID로 기록된 변경 없음</span></div>
+<div class="card-meta"><span class="badge st-verified">verified</span><span class="meta"><b>구현</b> <code>automation_core/correlation.py</code>, <code>observation.py</code></span><span class="meta"><b>테스트</b> <a class="idref" href="#TEST-AUTO-002">TEST-AUTO-002</a>, <code>tests/test_automation_correlation.py</code>, <code>tests/test_observation.py</code></span><span class="meta"><b>참조됨</b> <a class="idref" href="#TEST-AUTO-002">TEST-AUTO-002</a></span></div>
+<details class="history"><summary>변경 이력 1</summary>
+<ul>
+<li><span class="hist">[Unreleased] · Changed</span> <a class="idref" href="#REQ-SRS-004">REQ-SRS-004</a> / <a class="idref" href="#REQ-OPS-002">REQ-OPS-002</a> / <a class="idref" href="#REQ-OBS-001">REQ-OBS-001</a> / <a class="idref" href="#REQ-AUTO-001">REQ-AUTO-001</a> / <a class="idref" href="#REQ-AUTO-002">REQ-AUTO-002</a> / <a class="idref" href="#REQ-AUTO-003">REQ-AUTO-003</a> / <a class="idref" href="#REQ-AUTO-004">REQ-AUTO-004</a>: 추적성 표 Status 칸에는 값(<code>verified</code>·<code>implemented</code>)만 남기고, 함께 적혀 있던 검증 범위 설명은 각 요구사항 절의 <code>참고</code> 상자로 옮겼다(공통 키트 workflow v6). 사양 내용은 바꾸지 않았다.</li>
+</ul>
+</details>
 <ul>
 <li>입력: 완전한 SRS 스냅샷, 성공 이슈 manifest와 backup, 기존 후보 상태, 중요도 설정.</li>
 <li>동작: 명시적 linked work item과 정확한 Polarion ID 참조로만 연계한다. 변경 SRS의 직전 <code>updated</code>보다 늦고 현재 <code>updated</code> 이하인 구간에 <code>created</code> 또는 <code>updated</code>된 연결 이슈만 해당 SRS의 관련 이슈로 고려한다. 이 중 재오픈/최상위 심각도 이슈는 CRITICAL, 미해결 이슈는 HIGH, 그 밖의 신규·변경은 MEDIUM으로 분류한다.</li>
@@ -475,10 +496,18 @@ footer{max-width:1280px;margin:0 auto;padding:8px 32px 40px;color:var(--muted);f
 <li>예외 처리: 제목·키워드 유사도로 연계하지 않는다. 알 수 없는 상태·심각도는 임의 상향하지 않고 MEDIUM으로 기록한다. 입력 누락을 삭제로 추정하지 않는다.</li>
 <li>관련 구현: <code>automation_core/correlation.py</code>, <code>automation_core/state.py</code>, <code>observation.py</code>. 관련 테스트: <a class="idref" href="#TEST-AUTO-002">TEST-AUTO-002</a>.</li>
 </ul>
+<aside class="callout callout-info"><span class="callout-label">참고</span>
+<p>검증 범위: 합성 입력.</p>
+</aside>
 </section>
 <section class="card kind-req" id="REQ-AUTO-003">
 <h3><span class="idtag">REQ-AUTO-003</span> — 영속 이메일 대기함과 재시도</h3>
-<div class="card-meta"><span class="meta"><b>구현</b> <code>automation_core/email.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/src/notify.py</code></span><span class="meta"><b>테스트</b> <a class="idref" href="#TEST-AUTO-003">TEST-AUTO-003</a>, <code>tests/test_automation_email.py</code>, <code>apps/srs-spec/tests/test_notify.py</code></span><span class="meta"><b>참조됨</b> <a class="idref" href="#TEST-AUTO-003">TEST-AUTO-003</a></span><span class="meta nohist"><b>변경 이력</b> CHANGELOG에 이 ID로 기록된 변경 없음</span></div>
+<div class="card-meta"><span class="badge st-verified">verified</span><span class="meta"><b>구현</b> <code>automation_core/email.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/src/notify.py</code></span><span class="meta"><b>테스트</b> <a class="idref" href="#TEST-AUTO-003">TEST-AUTO-003</a>, <code>tests/test_automation_email.py</code>, <code>apps/srs-spec/tests/test_notify.py</code></span><span class="meta"><b>참조됨</b> <a class="idref" href="#TEST-AUTO-003">TEST-AUTO-003</a></span></div>
+<details class="history"><summary>변경 이력 1</summary>
+<ul>
+<li><span class="hist">[Unreleased] · Changed</span> <a class="idref" href="#REQ-SRS-004">REQ-SRS-004</a> / <a class="idref" href="#REQ-OPS-002">REQ-OPS-002</a> / <a class="idref" href="#REQ-OBS-001">REQ-OBS-001</a> / <a class="idref" href="#REQ-AUTO-001">REQ-AUTO-001</a> / <a class="idref" href="#REQ-AUTO-002">REQ-AUTO-002</a> / <a class="idref" href="#REQ-AUTO-003">REQ-AUTO-003</a> / <a class="idref" href="#REQ-AUTO-004">REQ-AUTO-004</a>: 추적성 표 Status 칸에는 값(<code>verified</code>·<code>implemented</code>)만 남기고, 함께 적혀 있던 검증 범위 설명은 각 요구사항 절의 <code>참고</code> 상자로 옮겼다(공통 키트 workflow v6). 사양 내용은 바꾸지 않았다.</li>
+</ul>
+</details>
 <ul>
 <li>입력: 새 후보 요약 또는 데이터 실행 실패, 기존 SRS SMTP 설정과 환경변수.</li>
 <li>동작: 원문 없이 중요도·ID·선정 이유·상태 변화·로컬 summary 경로를 포함한 메시지를 outbox에 먼저 저장하고 발송한다. 내용 해시로 중복을 막는다.</li>
@@ -486,10 +515,18 @@ footer{max-width:1280px;margin:0 auto;padding:8px 32px 40px;color:var(--muted);f
 <li>예외 처리: 3회 실패는 FAILED로 남기고 수동 재전송할 수 있다. SENDING 중 프로세스 종료는 전달 여부가 모호하므로 자동 재전송하지 않고 수동 확인 대상으로 남긴다. 비활성/불완전 SMTP 설정은 외부 연결 전에 로컬 점검에서 실패한다.</li>
 <li>관련 구현: <code>automation_core/email.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/src/notify.py</code>. 관련 테스트: <a class="idref" href="#TEST-AUTO-003">TEST-AUTO-003</a>.</li>
 </ul>
+<aside class="callout callout-info"><span class="callout-label">참고</span>
+<p>검증 범위: 합성 SMTP.</p>
+</aside>
 </section>
 <section class="card kind-req" id="REQ-AUTO-004">
 <h3><span class="idtag">REQ-AUTO-004</span> — 평일 통합 예약 작업과 안전한 전환</h3>
-<div class="card-meta"><span class="meta"><b>구현</b> <code>scripts/install_automation_task.ps1</code></span><span class="meta"><b>테스트</b> <a class="idref" href="#TEST-AUTO-004">TEST-AUTO-004</a>, <code>tests/test_automation_scheduler.py</code></span><span class="meta"><b>참조됨</b> <a class="idref" href="#TEST-AUTO-004">TEST-AUTO-004</a></span><span class="meta nohist"><b>변경 이력</b> CHANGELOG에 이 ID로 기록된 변경 없음</span></div>
+<div class="card-meta"><span class="badge st-verified">verified</span><span class="meta"><b>구현</b> <code>scripts/install_automation_task.ps1</code></span><span class="meta"><b>테스트</b> <a class="idref" href="#TEST-AUTO-004">TEST-AUTO-004</a>, <code>tests/test_automation_scheduler.py</code></span><span class="meta"><b>참조됨</b> <a class="idref" href="#TEST-AUTO-004">TEST-AUTO-004</a></span></div>
+<details class="history"><summary>변경 이력 1</summary>
+<ul>
+<li><span class="hist">[Unreleased] · Changed</span> <a class="idref" href="#REQ-SRS-004">REQ-SRS-004</a> / <a class="idref" href="#REQ-OPS-002">REQ-OPS-002</a> / <a class="idref" href="#REQ-OBS-001">REQ-OBS-001</a> / <a class="idref" href="#REQ-AUTO-001">REQ-AUTO-001</a> / <a class="idref" href="#REQ-AUTO-002">REQ-AUTO-002</a> / <a class="idref" href="#REQ-AUTO-003">REQ-AUTO-003</a> / <a class="idref" href="#REQ-AUTO-004">REQ-AUTO-004</a>: 추적성 표 Status 칸에는 값(<code>verified</code>·<code>implemented</code>)만 남기고, 함께 적혀 있던 검증 범위 설명은 각 요구사항 절의 <code>참고</code> 상자로 옮겼다(공통 키트 workflow v6). 사양 내용은 바꾸지 않았다.</li>
+</ul>
+</details>
 <ul>
 <li>입력: 작업 이름 <code>ALM_QA_Automation_Daily</code>, 평일 09:00, Python과 프로젝트 경로.</li>
 <li>동작: 미리보기와 로컬 점검을 제공하고, 기존 작업 XML을 백업한 후 새 작업을 등록·재조회 검증한다. 첫 통합 데이터 성공 manifest를 확인한 <code>-FinalizeTransition</code>에서만 기존 SRS 주간/CatchUp 작업을 비활성화한다.</li>
@@ -497,6 +534,9 @@ footer{max-width:1280px;margin:0 auto;padding:8px 32px 40px;color:var(--muted);f
 <li>예외 처리: 등록 또는 재조회 검증 실패 시 기존 작업 상태를 바꾸지 않는다. 실제 설치 전 <code>-WhatIf</code>는 시스템 상태를 변경하지 않는다.</li>
 <li>관련 구현: <code>scripts/install_automation_task.ps1</code>. 관련 테스트: <a class="idref" href="#TEST-AUTO-004">TEST-AUTO-004</a>.</li>
 </ul>
+<aside class="callout callout-info"><span class="callout-label">참고</span>
+<p>검증 범위: 계획·실제 등록 재조회. 첫 실제 데이터 실행은 운영 확인.</p>
+</aside>
 </section>
 </section>
 <section class="chapter" id="sec-6">
@@ -761,17 +801,17 @@ footer{max-width:1280px;margin:0 auto;padding:8px 32px 40px;color:var(--muted);f
 <tr><td><a class="idref" href="#REQ-SRS-001">REQ-SRS-001</a></td><td><code>apps/srs-spec/src/collector.py</code>, <code>apps/srs-spec/src/richtext.py</code>, <code>apps/srs-spec/src/snapshot_store.py</code></td><td><a class="idref" href="#TEST-SRS-001">TEST-SRS-001</a></td><td><span class="badge st-implemented">implemented</span></td></tr>
 <tr><td><a class="idref" href="#REQ-SRS-002">REQ-SRS-002</a></td><td><code>apps/srs-spec/src/partition.py</code>, <code>apps/srs-spec/src/pdf.py</code>, <code>apps/srs-spec/src/render_recovery.py</code></td><td><a class="idref" href="#TEST-SRS-002">TEST-SRS-002</a>, <a class="idref" href="#TEST-OPS-001">TEST-OPS-001</a></td><td><span class="badge st-implemented">implemented</span></td></tr>
 <tr><td><a class="idref" href="#REQ-SRS-003">REQ-SRS-003</a></td><td><code>apps/srs-spec/src/diff.py</code>, <code>apps/srs-spec/src/report.py</code>, <code>apps/srs-spec/src/period_report.py</code></td><td><a class="idref" href="#TEST-SRS-003">TEST-SRS-003</a></td><td><span class="badge st-implemented">implemented</span></td></tr>
-<tr><td><a class="idref" href="#REQ-SRS-004">REQ-SRS-004</a></td><td><code>apps/srs-spec/main.py</code>, <code>apps/srs-spec/src/validate.py</code>, <code>apps/srs-spec/src/publish.py</code></td><td><a class="idref" href="#TEST-SRS-004">TEST-SRS-004</a></td><td>implemented (강제 종료 복구 제한은 9절)</td></tr>
+<tr><td><a class="idref" href="#REQ-SRS-004">REQ-SRS-004</a></td><td><code>apps/srs-spec/main.py</code>, <code>apps/srs-spec/src/validate.py</code>, <code>apps/srs-spec/src/publish.py</code></td><td><a class="idref" href="#TEST-SRS-004">TEST-SRS-004</a></td><td><span class="badge st-implemented">implemented</span></td></tr>
 <tr><td><a class="idref" href="#REQ-SRS-005">REQ-SRS-005</a></td><td><code>apps/srs-spec/scripts/install_task.ps1</code>, <code>apps/srs-spec/src/run_lock.py</code>, <code>apps/srs-spec/src/run_marker.py</code></td><td><a class="idref" href="#TEST-SRS-005">TEST-SRS-005</a></td><td><span class="badge st-implemented">implemented</span></td></tr>
 <tr><td><a class="idref" href="#REQ-ISSUE-001">REQ-ISSUE-001</a></td><td><code>apps/issue-export/polarion_query_backup.py</code></td><td><a class="idref" href="#TEST-ISSUE-001">TEST-ISSUE-001</a></td><td><span class="badge st-implemented">implemented</span></td></tr>
 <tr><td><a class="idref" href="#REQ-ISSUE-002">REQ-ISSUE-002</a></td><td><code>apps/issue-export/polarion_query_backup.py</code>, <code>run.py</code></td><td><a class="idref" href="#TEST-ISSUE-001">TEST-ISSUE-001</a>, <a class="idref" href="#TEST-OPS-001">TEST-OPS-001</a></td><td><span class="badge st-implemented">implemented</span></td></tr>
 <tr><td><a class="idref" href="#REQ-OPS-001">REQ-OPS-001</a></td><td><code>apps/issue-export/polarion_query_backup.py</code>, <code>apps/srs-spec/main.py</code>, <code>apps/srs-spec/src/notify.py</code></td><td><a class="idref" href="#TEST-OPS-002">TEST-OPS-002</a></td><td><span class="badge st-draft">draft</span></td></tr>
-<tr><td><a class="idref" href="#REQ-OPS-002">REQ-OPS-002</a></td><td><code>apps/issue-export/export_run.py</code>, <code>apps/issue-export/polarion_query_backup.py</code></td><td><a class="idref" href="#TEST-OPS-004">TEST-OPS-004</a></td><td>verified (합성 입력)</td></tr>
-<tr><td><a class="idref" href="#REQ-OBS-001">REQ-OBS-001</a></td><td><code>observation.py</code>, <code>run.py</code></td><td><a class="idref" href="#TEST-OBS-001">TEST-OBS-001</a></td><td>verified (로컬 합성 입력)</td></tr>
-<tr><td><a class="idref" href="#REQ-AUTO-001">REQ-AUTO-001</a></td><td><code>automation.py</code>, <code>automation_core/orchestrator.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/main.py</code></td><td><a class="idref" href="#TEST-AUTO-001">TEST-AUTO-001</a>, <code>tests/test_automation_orchestrator.py</code>, <code>apps/srs-spec/tests/test_main_options.py</code></td><td>verified (합성·로컬 입력)</td></tr>
-<tr><td><a class="idref" href="#REQ-AUTO-002">REQ-AUTO-002</a></td><td><code>automation_core/correlation.py</code>, <code>observation.py</code></td><td><a class="idref" href="#TEST-AUTO-002">TEST-AUTO-002</a>, <code>tests/test_automation_correlation.py</code>, <code>tests/test_observation.py</code></td><td>verified (합성 입력)</td></tr>
-<tr><td><a class="idref" href="#REQ-AUTO-003">REQ-AUTO-003</a></td><td><code>automation_core/email.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/src/notify.py</code></td><td><a class="idref" href="#TEST-AUTO-003">TEST-AUTO-003</a>, <code>tests/test_automation_email.py</code>, <code>apps/srs-spec/tests/test_notify.py</code></td><td>verified (합성 SMTP)</td></tr>
-<tr><td><a class="idref" href="#REQ-AUTO-004">REQ-AUTO-004</a></td><td><code>scripts/install_automation_task.ps1</code></td><td><a class="idref" href="#TEST-AUTO-004">TEST-AUTO-004</a>, <code>tests/test_automation_scheduler.py</code></td><td>verified (계획·실제 등록 재조회); 첫 실제 데이터 실행은 운영 확인</td></tr>
+<tr><td><a class="idref" href="#REQ-OPS-002">REQ-OPS-002</a></td><td><code>apps/issue-export/export_run.py</code>, <code>apps/issue-export/polarion_query_backup.py</code></td><td><a class="idref" href="#TEST-OPS-004">TEST-OPS-004</a></td><td><span class="badge st-verified">verified</span></td></tr>
+<tr><td><a class="idref" href="#REQ-OBS-001">REQ-OBS-001</a></td><td><code>observation.py</code>, <code>run.py</code></td><td><a class="idref" href="#TEST-OBS-001">TEST-OBS-001</a></td><td><span class="badge st-verified">verified</span></td></tr>
+<tr><td><a class="idref" href="#REQ-AUTO-001">REQ-AUTO-001</a></td><td><code>automation.py</code>, <code>automation_core/orchestrator.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/main.py</code></td><td><a class="idref" href="#TEST-AUTO-001">TEST-AUTO-001</a>, <code>tests/test_automation_orchestrator.py</code>, <code>apps/srs-spec/tests/test_main_options.py</code></td><td><span class="badge st-verified">verified</span></td></tr>
+<tr><td><a class="idref" href="#REQ-AUTO-002">REQ-AUTO-002</a></td><td><code>automation_core/correlation.py</code>, <code>observation.py</code></td><td><a class="idref" href="#TEST-AUTO-002">TEST-AUTO-002</a>, <code>tests/test_automation_correlation.py</code>, <code>tests/test_observation.py</code></td><td><span class="badge st-verified">verified</span></td></tr>
+<tr><td><a class="idref" href="#REQ-AUTO-003">REQ-AUTO-003</a></td><td><code>automation_core/email.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/src/notify.py</code></td><td><a class="idref" href="#TEST-AUTO-003">TEST-AUTO-003</a>, <code>tests/test_automation_email.py</code>, <code>apps/srs-spec/tests/test_notify.py</code></td><td><span class="badge st-verified">verified</span></td></tr>
+<tr><td><a class="idref" href="#REQ-AUTO-004">REQ-AUTO-004</a></td><td><code>scripts/install_automation_task.ps1</code></td><td><a class="idref" href="#TEST-AUTO-004">TEST-AUTO-004</a>, <code>tests/test_automation_scheduler.py</code></td><td><span class="badge st-verified">verified</span></td></tr>
 <tr><td><a class="idref" href="#NFR-OPS-001">NFR-OPS-001</a></td><td><code>run.py</code>, <code>.gitignore</code></td><td><a class="idref" href="#TEST-OPS-003">TEST-OPS-003</a></td><td><span class="badge st-verified">verified</span></td></tr>
 <tr><td><a class="idref" href="#NFR-SEC-001">NFR-SEC-001</a></td><td><code>.gitignore</code>, <code>apps/srs-spec/.gitignore</code>, <code>apps/issue-export/.gitignore</code>, <code>apps/srs-spec/src/richtext.py</code></td><td><a class="idref" href="#TEST-SEC-001">TEST-SEC-001</a></td><td><span class="badge st-implemented">implemented</span></td></tr>
 </tbody>
