@@ -6,7 +6,7 @@
 - 두 수집 기능, 로컬 관찰, 완전 자동화를 공통 메뉴/CLI에서 실행한다.
 - 실제 서버 전체 수집·운영 배포·메일 수신·장기간 예약 실행은 별도 확인 대상이다.
 - 평일 09:00 통합 수집·명시 링크 연계·검토 우선순위·SMTP 대기함·안전한 예약 전환을 구현했다.
-- 실제 Polarion 통합 수집, SMTP 도착, 첫 예약 실행과 레거시 작업 비활성화는 운영 증거가 생길 때까지 미완료로 유지한다.
+- 실제 Polarion 통합 수집과 첫 예약 실행은 9/27·9/28 manifest(`SUCCESS`)로 확인했고, 레거시 작업은 2026-09-28 에 비활성화했다. SMTP 도착은 아직 운영 증거가 없다.
 
 ## 완료한 구현
 
@@ -35,7 +35,14 @@
 
 ### 운영 확인
 
-1. `automation.py --check-local`을 운영 Root에서 통과시킨다.
-2. 실제 통합 실행 한 건의 SRS·이슈 완전성, 후보, SMTP 수신을 확인한다.
-3. 성공 manifest로 전환을 확정해 기존 SRS 작업을 비활성화한다.
+1. `automation.py --check-local`을 운영 Root에서 통과시킨다. — **2026-09-28 통과.** `projects/` 재배치 뒤 로컬
+   설정 `apps/srs-spec/config/config.yaml`(Git 제외)의 두 경로가 옛 위치를 가리켜 메일 설정 오류로 실패했다.
+   `output.knowledge_folder` 와 `mail.credentials_ini` 를 `projects/` 아래 새 위치로 고친 뒤 OK. 고치기 전 설정은
+   `.project-governance-backups/config-20260928/` 에 있다.
+2. 실제 통합 실행 한 건의 SRS·이슈 완전성, 후보, SMTP 수신을 확인한다. — 9/27·9/28 manifest 는 `SUCCESS`,
+   `dataComplete=true`. SMTP 수신은 아직 확인하지 않았다.
+3. 성공 manifest로 전환을 확정해 기존 SRS 작업을 비활성화한다. — **2026-09-28 완료.**
+   `scripts/install_automation_task.ps1 -FinalizeTransition -Manifest <9/28 manifest>` 로
+   `VXvue_SRS_Spec_Automation`, `VXvue_SRS_Spec_Automation_CatchUp` 을 비활성화했다(삭제 아님).
+   이전 XML 은 `.project-governance-backups/scheduled-tasks-20260928/` 에 있다.
 4. 여러 운영 실행에서 후보 정확도와 장시간 복구를 평가한다.
