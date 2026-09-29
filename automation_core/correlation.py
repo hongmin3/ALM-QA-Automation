@@ -12,11 +12,34 @@ REFERENCE_RE = re.compile(
     r"(?<![A-Z0-9_/-])(?:([A-Z][A-Z0-9_-]*)/)?([A-Z][A-Z0-9_]*-[0-9]+)(?![A-Z0-9_/-])"
 )
 PRIORITY_ORDER = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2}
+# 스냅샷 본문의 그림 주소에는 그 날의 스냅샷 폴더와 저장소 위치가 들어 있다.
+# 이 앞부분은 날마다 달라지므로 비교할 때는 `_images/` 뒤만 본다.
+LOCAL_IMAGE_PREFIX_RE = re.compile(
+    r"file:///[^\"'\s<>]*?/_images/"
+    r"|[A-Za-z]:(?:\\\\|\\)[^\"'\s<>]*?(?:\\\\|\\)_images(?:\\\\|\\)"
+)
 
 
 def digest(value: object) -> str:
     encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def comparable(value: object) -> object:
+    """비교용 사본. 스냅샷 위치가 들어간 그림 주소 앞부분을 지운다."""
+    if isinstance(value, str):
+        return LOCAL_IMAGE_PREFIX_RE.sub("_images/", value)
+    if isinstance(value, dict):
+        return {key: comparable(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [comparable(item) for item in value]
+    return value
+
+
+def changed_fields(before: dict | None, after: dict | None) -> list[str]:
+    left = workitem_attributes(comparable(before)) if before else {}
+    right = workitem_attributes(comparable(after)) if after else {}
+    return sorted(key for key in set(left) | set(right) if left.get(key) != right.get(key))
 
 
 def workitem_attributes(record: dict | None) -> dict:
@@ -88,16 +111,19 @@ def compute_changes(
         prior = previous.get(key)
         before = prior.get("record") if isinstance(prior, dict) else None
         after = item["record"]
-        if before == after:
+        if comparable(before) == comparable(after):
             continue
+        title = workitem_attributes(after).get("title")
         changes.append(
             {
                 "source": source,
                 "project": item["project"],
                 "itemId": item["itemId"],
                 "change": "NEW" if before is None else "CHANGED",
-                "beforeVersion": digest(before),
-                "afterVersion": digest(after),
+                "beforeVersion": digest(comparable(before)),
+                "afterVersion": digest(comparable(after)),
+                "title": str(title) if title is not None else None,
+                "changedFields": changed_fields(before, after) if before is not None else [],
                 "before": before,
                 "after": after,
                 "statusChange": {"before": status_of(before), "after": status_of(after)},

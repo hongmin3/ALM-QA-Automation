@@ -123,9 +123,10 @@ def test_email_payload_excludes_source_records_and_secrets() -> None:
     serialized = message.as_string()
     assert "PRIVATE" not in serialized
     assert "SECRET" not in serialized
-    body = message.get_content()
-    assert "startExclusive" in body
-    assert "activityFields" in body
+    raw = next(message.iter_attachments()).get_content()
+    raw = raw.decode("utf-8") if isinstance(raw, bytes) else raw
+    assert "startExclusive" in raw
+    assert "activityFields" in raw
 
 
 def test_candidate_message_dedup_ignores_run_specific_metadata(tmp_path: Path) -> None:
@@ -178,3 +179,63 @@ def test_existing_srs_env_is_loaded_before_mail_settings(tmp_path: Path, monkeyp
 
     assert settings.missing_fields() == []
     assert runtime.snapshots_dir == srs_root / "snapshots"
+
+
+def _korean_payload(medium_count: int = 0) -> dict:
+    payload = candidate_payload(["VP-631"])
+    payload["candidates"][0].update({"title": "로그인 화면", "changedFields": ["content_html", "updated"]})
+    for index in range(medium_count):
+        payload["candidates"].append(
+            {
+                "priority": "MEDIUM",
+                "project": "P",
+                "itemId": f"VP-{1000 + index}",
+                "title": f"사양 {index}",
+                "reasons": ["CHANGED_SRS"],
+                "linkedIds": [],
+                "changedFields": ["description_raw", "updated"],
+            }
+        )
+    payload["messageId"] = "abc123"
+    return payload
+
+
+def test_candidate_mail_is_a_korean_summary_with_json_attachment() -> None:
+    # Validates: REQ-AUTO-003
+    message = build_digest(_korean_payload(medium_count=2), polarion_host="https://polarion.example")
+
+    assert message["Subject"] == "[ALM QA] 검토 후보 3건 · 우선 확인 1건 (사양 변경 3 · 이슈 변경 0)"
+    body = message.get_body(("plain",)).get_content()
+    assert "우선 확인 (HIGH) 1건" in body
+    assert "VP-631 로그인 화면" in body
+    assert "바뀐 곳: 본문" in body
+    assert "연결 이슈: P/ISSUE-7" in body
+    assert "https://polarion.example/polarion/#/project/P/workitem?id=VP-631" in body
+    assert "{" not in body  # 원자료 JSON 은 본문에 넣지 않는다
+    [attachment] = list(message.iter_attachments())
+    assert attachment.get_filename() == "alm_qa_candidates.json"
+    raw = attachment.get_content()
+    raw = raw.decode("utf-8") if isinstance(raw, bytes) else raw
+    assert "startExclusive" in raw and "activityFields" in raw
+
+
+def test_long_medium_list_is_cut_in_body_but_complete_in_attachment() -> None:
+    # Validates: REQ-AUTO-003
+    message = build_digest(_korean_payload(medium_count=60))
+
+    body = message.get_body(("plain",)).get_content()
+    assert body.count("VP-10") == 50
+    assert "나머지 10건은 첨부 파일" in body
+    raw = next(message.iter_attachments()).get_content()
+    raw = raw.decode("utf-8") if isinstance(raw, bytes) else raw
+    assert raw.count('"itemId"') == 61
+
+
+def test_run_failure_mail_is_korean() -> None:
+    # Validates: REQ-AUTO-003
+    message = build_digest(
+        {"kind": "RUN_FAILED", "status": "FAILED", "stage": "srs", "summaryPath": "s.md", "messageId": "x"}
+    )
+
+    assert message["Subject"] == "[ALM QA] 실행 실패 · SRS 수집 단계"
+    assert "s.md" in message.get_body(("plain",)).get_content()

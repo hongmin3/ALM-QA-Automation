@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- REQ-AUTO-002: 본문 그림 주소에 스냅샷 날짜 폴더가 들어 있어, 그림이 있는 사양이 내용이 같아도 날마다 "변경"으로 잡히던 결함을 고쳤다. 2026-09-29 메일의 검토 후보 330건 가운데 실제 변경은 10건이었다. 이제 비교할 때 그림 주소 앞부분을 뺀다.
+
+### Changed
+
+- REQ-AUTO-003: 검토 후보 메일을 한국어 요약으로 바꿨다. 제목에 우선 확인 건수를, 본문에 중요도별 사양 번호·제목·바뀐 곳·연결 이슈·Polarion 링크를 적는다. 원자료 JSON은 첨부 파일 `alm_qa_candidates.json`으로만 붙인다. 실행 실패 메일도 한국어로 바꿨다.
+
 ### Removed
 
 - 통합 후 참조가 없는 완료 계획서 `docs/superpowers/plans/2026-09-21-integration.md` 제거. 실제 이행 근거는 `docs/INTEGRATION_VALIDATION.md`로 유지.

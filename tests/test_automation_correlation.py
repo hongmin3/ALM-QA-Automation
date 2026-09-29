@@ -239,3 +239,51 @@ def test_changed_srs_only_considers_linked_issues_active_in_its_updated_window()
             "activityFields": ["updated"],
         },
     ]
+
+
+def _srs_item(record: dict) -> dict:
+    return {"project": "VXvue", "itemId": "VP-44", "record": record}
+
+
+def test_snapshot_image_folder_path_is_not_a_change() -> None:
+    # Validates: REQ-AUTO-002
+    # 본문 속 그림 주소에 스냅샷 날짜 폴더와 저장소 위치가 들어 있다. 이것만 다르면 변경이 아니다.
+    before = {
+        "title": "운영체제",
+        "content_html": '<img src="file:///C:/Users/u/Documents/work/ALM-QA-Automation/apps/srs-spec/'
+        'snapshots/2026-09-28/_images/VXvue/VP-44/1-shot.png"/>',
+        "image_results": '["C:\\Users\\u\\Documents\\work\\ALM-QA-Automation\\apps\\srs-spec'
+        '\\snapshots\\2026-09-28\\_images\\VXvue\\VP-44\\1-shot.png"]',
+    }
+    after = {
+        "title": "운영체제",
+        "content_html": '<img src="file:///C:/Users/u/Documents/work/projects/ALM-QA-Automation/apps/srs-spec/'
+        'snapshots/2026-09-29/_images/VXvue/VP-44/1-shot.png"/>',
+        "image_results": '["C:\\Users\\u\\Documents\\work\\projects\\ALM-QA-Automation\\apps\\srs-spec'
+        '\\snapshots\\2026-09-29\\_images\\VXvue\\VP-44\\1-shot.png"]',
+    }
+
+    changes = compute_changes("srs", {"k": _srs_item(after)}, {"k": _srs_item(before)})
+
+    assert changes == []
+
+
+def test_real_change_lists_changed_fields_and_ignores_image_path() -> None:
+    # Validates: REQ-AUTO-002
+    before = {
+        "title": "운영체제",
+        "updated": "2026-09-28T01:00:00Z",
+        "description_raw": "Windows 10",
+        "content_html": '<img src="file:///C:/a/snapshots/2026-09-28/_images/VXvue/VP-44/1.png"/>',
+    }
+    after = {
+        "title": "운영체제",
+        "updated": "2026-09-29T01:00:00Z",
+        "description_raw": "Windows 11",
+        "content_html": '<img src="file:///C:/b/snapshots/2026-09-29/_images/VXvue/VP-44/1.png"/>',
+    }
+
+    [change] = compute_changes("srs", {"k": _srs_item(after)}, {"k": _srs_item(before)})
+
+    assert change["changedFields"] == ["description_raw", "updated"]
+    assert change["title"] == "운영체제"
