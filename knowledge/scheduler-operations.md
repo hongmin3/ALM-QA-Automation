@@ -1,39 +1,45 @@
 # Scheduler Operations
 
-## 등록되는 작업 두 개
+## 등록된 예약 작업
 <!-- akela: id=registered-tasks -->
 
-| 작업 | 트리거 | 인수 | 역할 |
-|---|---|---|---|
-| `VXvue_SRS_Spec_Automation` | 매주 월요일 07:00 | `main.py` | 주간 정기 실행 |
-| `VXvue_SRS_Spec_Automation_CatchUp` | PC 시작 5분 후 | `main.py --catch-up` | 놓친 주 만회 |
+| 작업 | 상태 | 실행 시점 | 실행 | 역할 |
+|---|---|---|---|---|
+| `ALM_QA_Automation_Daily` | 사용 중 | 평일(월~금) 09:00 | 저장소 Root 에서 `automation.py` | SRS 수집·사양서 PDF·이슈 Export·알림을 한 번에 도는 통합 실행 |
+| `VXvue_SRS_Spec_Automation` | Disabled (2026-09-28) | 매주 월요일 07:00 | `apps/srs-spec` 에서 `main.py` | 통합 전 주간 실행. 지우지 않고 꺼 두었다 |
+| `VXvue_SRS_Spec_Automation_CatchUp` | Disabled (2026-09-28) | PC 시작 5분 후 | `apps/srs-spec` 에서 `main.py --catch-up` | 통합 전 부팅 만회 실행 |
 
-등록: `.\scripts\install_task.ps1` (python.exe는 PATH 자동 탐색, `-PythonExe`로 지정 가능, `-At "06:30"`으로 실행 시각 변경 가능. 동일 이름 작업이 있으면 제거 후 재등록). 해제: `.\scripts\uninstall_task.ps1` (두 작업 모두 제거).
+등록: `.\scripts\install_automation_task.ps1 -Install` (먼저 `-PlanJson` 또는 `-Install -WhatIf` 로 계획을 본다). 옛 두 작업은 첫 통합 실행이 성공한 뒤 `-FinalizeTransition` 으로 끄기만 하고 지우지 않는다.
+
+- 꺼 둔 옛 작업을 다시 켜거나 수동 실행하지 않는다. 통합 작업과 같은 수집을 한 번 더 한다(2026-09-28 08:03 과 09:00 에 두 번 수집됐다).
+- `apps/srs-spec/scripts/install_task.ps1` 은 통합 전 방식의 등록 스크립트다. 새로 등록할 때 쓰지 않는다.
 
 ## 놓친 실행 만회 규칙
 <!-- akela: id=catchup-rules -->
 
-두 겹의 보정 장치가 있다.
+- 통합 작업은 `StartWhenAvailable` 로만 만회한다. PC 가 09:00 에 꺼져 있었으면 다음에 켜졌을 때 Windows 가 한 번 실행한다. 시점은 OS 사정에 따라 늦어질 수 있다.
+- 부팅 시 만회 작업(`--catch-up`, `logs/last_run.json` 의 주간 실행 기록 확인)은 옛 주간 작업의 장치다. 2026-09-28 부터 꺼져 있다.
 
-1. **`StartWhenAvailable`** — Windows가 놓친 예정 실행을 다음 가능 시점에 자동 실행한다. 다만 실행 시점이 OS 사정에 따라 늦어질 수 있다.
-2. **부팅 시 `--catch-up` 작업** — PC 시작 5분 후 실행. `logs/last_run.json`에 이번 주(월요일 기준 ISO 주) 실행 기록이 있으면 즉시 종료하고 아무 것도 하지 않는다. 기록이 없으면 그 시점에 놓친 실행을 수행한다. 이 덕분에 매번 부팅해도 중복 실행되지 않는다.
-
-**실패한 주는 자동으로 다시 돌리지 않는다.** 실패도 실행 기록으로 남기므로 부팅 시 재시도되지 않고, 실패 사실은 메일로만 알린다. `RestartCount`도 0으로 설정되어 있다 — 실패를 조용히 반복하는 대신 사람에게 알리는 쪽을 택한 설계.
+**실패한 실행은 자동으로 다시 돌리지 않는다.** `RestartCount` 가 0 이다. 실패를 조용히 되풀이하는 대신 사람이 알아채게 하려는 설계다.
 
 ## 스케줄러 작업 공통 설정과 이유
 <!-- akela: id=task-settings -->
 
+`ALM_QA_Automation_Daily` 의 값이다. 설치 스크립트(`scripts/install_automation_task.ps1`)가 이 값으로 등록하고, 등록 뒤 다시 읽어 다르면 실패시킨다.
+
 | 설정 | 값 | 이유 |
 |---|---|---|
 | `StartWhenAvailable` | True | 놓친 예정 실행을 다음 가능 시점에 실행 |
-| `MultipleInstances` | IgnoreNew | 정기 실행과 부팅 만회 실행이 겹쳐도 중복 실행 방지 |
-| `RunOnlyIfNetworkAvailable` | True | Polarion 접근 불가 상태에서 헛돌지 않게 |
-| `ExecutionTimeLimit` | 2시간 | 무한 대기 방지 |
-| `RestartCount` | 0 | 실패 시 자동 재시도 없음 — 메일로만 알림 |
-| LogonType | S4U | 로그온 여부와 무관하게 실행, 비밀번호 미저장 |
-| Priority | 4(보통) | Chromium 인쇄 성능에 직접 영향 (아래 참고) |
+| `MultipleInstances` | IgnoreNew | 수동 실행과 예약 실행이 겹쳐도 한 번만 돈다 |
+| `RunOnlyIfNetworkAvailable` | True | Polarion 에 닿지 않는 상태에서 헛돌지 않게 |
+| `ExecutionTimeLimit` | 4시간 | 무한 대기 방지 |
+| `RestartCount` | 0 | 실패 시 자동 재시도 없음 |
+| LogonType | S4U | 로그온 여부와 상관없이 실행, 비밀번호를 저장하지 않음 |
+| Priority | 7 (Task Scheduler 기본값) | 아래 참고 |
 
-**Priority 4가 중요한 이유**: Task Scheduler 기본 우선순위(7, 낮음)에서는 Chromium 인쇄가 크게 느려져, 대화형 실행에서 17~36초에 끝나는 그룹이 90초 제한을 넘겨 실패하는 현상이 실측되었다. `-Priority 4`(보통)로 등록해야 대화형 실행과 비슷한 속도가 나온다. **스케줄러에서만 렌더링 타임아웃이 발생한다면 이 설정부터 확인.**
+**우선순위와 PDF 렌더링**: 통합 전 주간 작업은 우선순위 4(보통)로 등록했다. 기본값 7 에서 Chromium 인쇄가 느려져 90초 제한을 넘긴 일이 있었기 때문이다. 통합 작업은 7 로 돌고, 2026-09-29 실행에서 사양서 그룹마다 16~22초에 끝났다. 스케줄러에서만 렌더링 시간 초과가 늘어나면 우선순위를 4 로 올려 비교해 본다.
+
+> **참고** `VP-1277` 이 들어간 그룹은 2026-09-07 부터 우선순위 4·7 과 상관없이 매번 300초 시간 초과로 끊기고, 복구 경로(`render_problem_state.json`)로 사양서가 만들어진다. 우선순위 문제로 보지 않는다.
 
 **`.ps1` 파일은 UTF-8 BOM으로 저장해야 한다.** Windows PowerShell 5.1이 BOM 없는 `.ps1`을 시스템 ANSI 코드페이지로 읽어서, 한글 주석/문자열이 깨지고 파싱 오류까지 발생할 수 있다.
 
@@ -55,10 +61,13 @@ Polarion 토큰은 환경변수 `POLARION_TOKEN`으로만 전달한다. S4U 로�
 <!-- akela: id=ops-commands -->
 
 ```powershell
-Get-ScheduledTask -TaskName VXvue_SRS_Spec_Automation, VXvue_SRS_Spec_Automation_CatchUp | Format-List TaskName, State
-Get-ScheduledTaskInfo -TaskName VXvue_SRS_Spec_Automation | Format-List LastRunTime, LastTaskResult, NextRunTime
-Start-ScheduledTask -TaskName VXvue_SRS_Spec_Automation   # 즉시 1회 실행
+Get-ScheduledTask -TaskName ALM_QA_Automation_Daily | Format-List TaskName, State
+Get-ScheduledTaskInfo -TaskName ALM_QA_Automation_Daily | Format-List LastRunTime, LastTaskResult, NextRunTime
+Start-ScheduledTask -TaskName ALM_QA_Automation_Daily   # 즉시 1회 실행. 오늘 이미 돌았으면 같은 수집을 한 번 더 한다
+python automation.py --check-local                      # 로컬 설정·경로만 확인
 ```
+
+옛 작업(`VXvue_SRS_Spec_Automation`, `_CatchUp`)은 Disabled 상태가 맞다. 상태를 볼 때만 이름을 쓴다.
 
 ## 자주 쓰는 실행 모드
 <!-- akela: id=common-run-modes -->

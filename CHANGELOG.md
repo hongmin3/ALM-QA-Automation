@@ -28,6 +28,8 @@
 
 ### Changed
 
+- 예약 작업 운영 지식(`knowledge/scheduler-operations.md`) 4개 절을 통합 작업 `ALM_QA_Automation_Daily` 기준으로 다시 썼다: 등록 작업 표, 놓친 실행 만회, 작업 설정 값(우선순위 7·4시간), 확인 명령. 옛 주간 작업 두 개는 Disabled 로 적었다. 이유: 옛 작업 기준 문장을 따라 수동 실행하면 같은 수집이 두 번 돈다(2026-09-28).
+
 - REQ-SRS-004 / REQ-OPS-002 / REQ-OBS-001 / REQ-AUTO-001 / REQ-AUTO-002 / REQ-AUTO-003 / REQ-AUTO-004: 추적성 표 Status 칸에는 값(`verified`·`implemented`)만 남기고, 함께 적혀 있던 검증 범위 설명은 각 요구사항 절의 `참고` 상자로 옮겼다(공통 키트 workflow v6). 사양 내용은 바꾸지 않았다.
 - 다른 저장소(옛 vxvue-srs-spec-automation 사본)에서 잘못 push된 병합이 들여온 `tests/test_run_lock.py`와 옛 Akela 기록 줄을 되돌렸다.
 - README에 제품 사용 흐름과 AI 활용 개발 역량을 구분해 소개하고 SPEC/진행 상태/개선안을 동기화.
