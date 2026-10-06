@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="generator" content="botyard render-spec-html v6">
 <meta name="spec-html-renderer" content="v6">
-<meta name="spec-source-sha256" content="127f8bb35c27a7030c357ef5c735ef423b4a003bc3d50b5ab2442a24b02048d8">
+<meta name="spec-source-sha256" content="5c24e14d22f7cdb389d4c300c6a5f79dc406b650c0a0503c5679a3d9e3aca53e">
 <title>ALM-QA-Automation 사양서</title>
 <style>:root{--bg:#f7f8fa;--panel:#fff;--text:#1d2330;--muted:#5d6678;--line:#e2e6ee;--accent:#2f6fde;--code:#f1f3f7;
 --req:#2f6fde;--nfr:#8a4fd8;--test:#15907a;--draft:#8a93a6;--implemented:#c98a12;--verified:#1f9d55;--deprecated:#c2413a;--active:#2f6fde;
@@ -296,7 +296,12 @@ footer{max-width:1280px;margin:0 auto;padding:8px 32px 40px;color:var(--muted);f
 </section>
 <section class="card kind-req" id="REQ-SRS-002">
 <h3><span class="idtag">REQ-SRS-002</span> — 안정적 분할과 PDF 복구</h3>
-<div class="card-meta"><span class="badge st-implemented">implemented</span><span class="meta"><b>구현</b> <code>apps/srs-spec/src/partition.py</code>, <code>apps/srs-spec/src/pdf.py</code>, <code>apps/srs-spec/src/render_recovery.py</code></span><span class="meta"><b>테스트</b> <a class="idref" href="#TEST-SRS-002">TEST-SRS-002</a>, <a class="idref" href="#TEST-OPS-001">TEST-OPS-001</a></span><span class="meta"><b>참조됨</b> <a class="idref" href="#TEST-OPS-001">TEST-OPS-001</a>, <a class="idref" href="#TEST-SRS-002">TEST-SRS-002</a></span><span class="meta nohist"><b>변경 이력</b> CHANGELOG에 이 ID로 기록된 변경 없음</span></div>
+<div class="card-meta"><span class="badge st-implemented">implemented</span><span class="meta"><b>구현</b> <code>apps/srs-spec/src/partition.py</code>, <code>apps/srs-spec/src/pdf.py</code>, <code>apps/srs-spec/src/render_recovery.py</code></span><span class="meta"><b>테스트</b> <a class="idref" href="#TEST-SRS-002">TEST-SRS-002</a>, <a class="idref" href="#TEST-OPS-001">TEST-OPS-001</a></span><span class="meta"><b>참조됨</b> <a class="idref" href="#TEST-OPS-001">TEST-OPS-001</a>, <a class="idref" href="#TEST-SRS-002">TEST-SRS-002</a></span></div>
+<details class="history"><summary>변경 이력 1</summary>
+<ul>
+<li><span class="hist">[Unreleased] · Fixed</span> <a class="idref" href="#REQ-SRS-002">REQ-SRS-002</a>: PDF 변환 프로세스 오류 시 같은 HTML을 새 프로세스로 한 번 더 변환한다. 기존 시간 제한 안에서 재시도하며, 상세 오류를 실행 로그에 남기고 민감정보는 가린다. 재시도 전에 불완전한 PDF를 지우고 결과 크기와 페이지를 검사한다.</li>
+</ul>
+</details>
 <ul>
 <li>목적: 항목 추가 시에도 기존 SRS의 문서 배치를 유지한다.</li>
 <li>입력: 정규화된 SRS, 모듈별 그룹 매핑, 렌더링 시간 제한.</li>
@@ -304,6 +309,8 @@ footer{max-width:1280px;margin:0 auto;padding:8px 32px 40px;color:var(--muted);f
 <li>동작: 그룹 매핑으로 HTML/PDF를 생성한다. PDF는 별도 프로세스에서 제한 시간 내 생성하고, 지연·폭주 항목은 재시도/격리와 서식 단순화로 처리한다.</li>
 <li>기대 결과: 동일 SRS의 그룹 유지, fallback에서도 텍스트·이미지 보존, 문제 항목 표시; PDF 크기와 페이지 수 검사.</li>
 <li>예외 처리: 미등록 모듈은 경고와 fallback 배정. 문제 캐시는 본문 및 렌더링 코드 해시 변경 시 무효화하며 재검사 옵션을 제공한다.</li>
+<li>PDF 변환 프로세스가 오류로 종료되면, 같은 HTML을 새 프로세스로 한 번 더 변환한다. 두 시도는 기존 변환 시간 제한을 함께 사용한다. 시간 초과는 기존 문제 항목 복구 절차로 넘긴다.</li>
+<li>변환 실패의 상세 오류를 실행 로그에 남긴다. 토큰이나 비밀번호를 포함할 가능성이 있는 오류는 가린다. 재시도 결과도 PDF 크기와 페이지 검사를 통과해야 한다.</li>
 <li>관련 구현: <code>apps/srs-spec/src/partition.py</code>, <code>apps/srs-spec/src/pdf.py</code>, <code>apps/srs-spec/src/render_recovery.py</code>.</li>
 <li>관련 테스트: <a class="idref" href="#TEST-SRS-002">TEST-SRS-002</a>, <a class="idref" href="#TEST-OPS-001">TEST-OPS-001</a>.</li>
 </ul>
@@ -659,7 +666,7 @@ footer{max-width:1280px;margin:0 auto;padding:8px 32px 40px;color:var(--muted);f
 <ul>
 <li>검증 대상: <a class="idref" href="#REQ-SRS-002">REQ-SRS-002</a>.</li>
 <li>선행 조건: 합성 항목, 시간 초과/복구를 재현하는 테스트 대역.</li>
-<li>절차: <code>apps/srs-spec/tests/test_partition.py</code>, <code>apps/srs-spec/tests/test_render_recovery.py</code> 실행.</li>
+<li>절차: <code>apps/srs-spec/tests/test_partition.py</code>, <code>apps/srs-spec/tests/test_render_recovery.py</code>, <code>apps/srs-spec/tests/test_pdf.py</code> 실행.</li>
 <li>Expected Result: 그룹 안정성, 문제 항목 격리, 원문 보존, 캐시 무효화, 복구 실패 보고.</li>
 </ul>
 </section>

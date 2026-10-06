@@ -12,10 +12,14 @@ from __future__ import annotations
 import logging
 import subprocess
 import sys
+import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
 from pypdf import PdfReader
+
+from .logging_setup import RedactingFilter
 
 logger = logging.getLogger("srs_automation")
 
@@ -44,27 +48,48 @@ def _kill_process_tree(pid: int) -> None:
 
 def html_to_pdf(html_path: Path, pdf_path: Path, timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS) -> PdfResult:
     pdf_path.parent.mkdir(parents=True, exist_ok=True)
-    if pdf_path.exists():
-        pdf_path.unlink()
 
-    proc = subprocess.Popen(
-        [sys.executable, "-m", "src.pdf_worker", html_path.resolve().as_uri(), str(pdf_path)],
-        cwd=str(Path(__file__).resolve().parent.parent),
-    )
-    try:
-        returncode = proc.wait(timeout=timeout_seconds)
-    except subprocess.TimeoutExpired:
-        logger.error(
-            "PDF 생성 시간 초과(%ds) - 프로세스 강제 종료: %s (해당 그룹 안에 렌더링을 멈추게 하는 SRS가 있을 수 있음)",
-            timeout_seconds,
-            html_path,
-        )
-        _kill_process_tree(proc.pid)
-        return PdfResult(path=pdf_path, size_bytes=0, page_count=0, ok=False, error=f"timeout after {timeout_seconds}s")
+    deadline = time.monotonic() + timeout_seconds
+    for attempt in (1, 2):
+        if pdf_path.exists():
+            pdf_path.unlink()
+        # A temporary file avoids a full stderr pipe blocking the worker.
+        with tempfile.TemporaryFile() as stderr_file:
+            proc = subprocess.Popen(
+                [sys.executable, "-m", "src.pdf_worker", html_path.resolve().as_uri(), str(pdf_path)],
+                cwd=str(Path(__file__).resolve().parent.parent),
+                stderr=stderr_file,
+            )
+            try:
+                returncode = proc.wait(timeout=max(0, deadline - time.monotonic()))
+            except subprocess.TimeoutExpired:
+                logger.error(
+                    "PDF 생성 시간 초과(%ds) - 프로세스 강제 종료: %s (해당 그룹 안에 렌더링을 멈추게 하는 SRS가 있을 수 있음)",
+                    timeout_seconds,
+                    html_path,
+                )
+                _kill_process_tree(proc.pid)
+                if proc.poll() is None:
+                    proc.kill()
+                proc.wait()
+                return PdfResult(path=pdf_path, size_bytes=0, page_count=0, ok=False, error=f"timeout after {timeout_seconds}s")
 
-    if returncode != 0:
-        logger.error("PDF 생성 실패(exit=%d): %s", returncode, html_path)
-        return PdfResult(path=pdf_path, size_bytes=0, page_count=0, ok=False, error=f"worker exit code {returncode}")
+            if returncode == 0:
+                break
+            stderr_file.seek(0)
+            diagnostic = stderr_file.read().decode("utf-8", errors="replace").strip()
+            # Check the entire message before truncating; secrets can precede the tail.
+            if any(key in diagnostic.lower() for key in RedactingFilter.REDACT_KEYS):
+                diagnostic = "[REDACTED - 민감정보 포함 가능성이 있어 오류 상세를 가림]"
+            logger.warning(
+                "PDF 변환 오류(시도=%d, exit=%d): %s\n%s",
+                attempt, returncode, html_path, diagnostic[-4000:] or "상세 오류 없음",
+            )
+        if attempt == 2:
+            return PdfResult(path=pdf_path, size_bytes=0, page_count=0, ok=False, error=f"worker exit code {returncode}")
+        if time.monotonic() >= deadline:
+            return PdfResult(path=pdf_path, size_bytes=0, page_count=0, ok=False, error=f"timeout after {timeout_seconds}s")
+        logger.warning("PDF 변환 프로세스를 새로 시작해 한 번 재시도합니다: %s", html_path)
 
     if not pdf_path.exists() or pdf_path.stat().st_size == 0:
         return PdfResult(path=pdf_path, size_bytes=0, page_count=0, ok=False, error="PDF 파일이 비어있거나 생성되지 않음")

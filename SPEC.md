@@ -102,6 +102,8 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 - 동작: 그룹 매핑으로 HTML/PDF를 생성한다. PDF는 별도 프로세스에서 제한 시간 내 생성하고, 지연·폭주 항목은 재시도/격리와 서식 단순화로 처리한다.
 - 기대 결과: 동일 SRS의 그룹 유지, fallback에서도 텍스트·이미지 보존, 문제 항목 표시; PDF 크기와 페이지 수 검사.
 - 예외 처리: 미등록 모듈은 경고와 fallback 배정. 문제 캐시는 본문 및 렌더링 코드 해시 변경 시 무효화하며 재검사 옵션을 제공한다.
+- PDF 변환 프로세스가 오류로 종료되면, 같은 HTML을 새 프로세스로 한 번 더 변환한다. 두 시도는 기존 변환 시간 제한을 함께 사용한다. 시간 초과는 기존 문제 항목 복구 절차로 넘긴다.
+- 변환 실패의 상세 오류를 실행 로그에 남긴다. 토큰이나 비밀번호를 포함할 가능성이 있는 오류는 가린다. 재시도 결과도 PDF 크기와 페이지 검사를 통과해야 한다.
 - 관련 구현: `apps/srs-spec/src/partition.py`, `apps/srs-spec/src/pdf.py`, `apps/srs-spec/src/render_recovery.py`.
 - 관련 테스트: TEST-SRS-002, TEST-OPS-001.
 
@@ -326,7 +328,7 @@ PAT와 SMTP 자격증명은 환경변수 또는 Git 제외 운영 설정에서�
 
 - 검증 대상: REQ-SRS-002.
 - 선행 조건: 합성 항목, 시간 초과/복구를 재현하는 테스트 대역.
-- 절차: `apps/srs-spec/tests/test_partition.py`, `apps/srs-spec/tests/test_render_recovery.py` 실행.
+- 절차: `apps/srs-spec/tests/test_partition.py`, `apps/srs-spec/tests/test_render_recovery.py`, `apps/srs-spec/tests/test_pdf.py` 실행.
 - Expected Result: 그룹 안정성, 문제 항목 격리, 원문 보존, 캐시 무효화, 복구 실패 보고.
 
 ### TEST-SRS-003
