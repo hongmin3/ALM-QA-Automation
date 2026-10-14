@@ -5,11 +5,13 @@
 
 | 작업 | 상태 | 실행 시점 | 실행 | 역할 |
 |---|---|---|---|---|
-| `ALM_QA_Automation_Daily` | 사용 중 | 평일(월~금) 09:00 | 저장소 Root 에서 `automation.py` | SRS 수집·사양서 PDF·이슈 Export·알림을 한 번에 도는 통합 실행 |
+| `ALM_QA_Automation_Daily` | 사용 중 | 평일(월~금) 09:00 | 저장소 Root 에서 `run.py issues --config apps/issue-export/config.yaml --out apps/issue-export/polarion_backup --timestamp` (Python 3.14, S4U·제한 권한) | 이슈 Export만 한다. 2026-10-13 SRS 수집을 qa-verification-management-system 의 `QA_SRS_Collect` 로 옮기면서 바꿨다 |
 | `VXvue_SRS_Spec_Automation` | Disabled (2026-09-28) | 매주 월요일 07:00 | `apps/srs-spec` 에서 `main.py` | 통합 전 주간 실행. 지우지 않고 꺼 두었다 |
 | `VXvue_SRS_Spec_Automation_CatchUp` | Disabled (2026-09-28) | PC 시작 5분 후 | `apps/srs-spec` 에서 `main.py --catch-up` | 통합 전 부팅 만회 실행 |
 
-등록: `.\scripts\install_automation_task.ps1 -Install` (먼저 `-PlanJson` 또는 `-Install -WhatIf` 로 계획을 본다). 옛 두 작업은 첫 통합 실행이 성공한 뒤 `-FinalizeTransition` 으로 끄기만 하고 지우지 않는다.
+2026-10-13 전환은 qa-verification-management-system 의 `scripts/install_srs_schedule.ps1` 이 했다. 이 저장소의 `install_automation_task.ps1` 은 작업을 `automation.py` 통합 실행으로 등록하므로, 다시 실행하면 SRS 수집이 두 곳에서 돈다. 다시 등록하기 전에 사람에게 확인한다.
+
+예전 등록 방법: `.\scripts\install_automation_task.ps1 -Install` (먼저 `-PlanJson` 또는 `-Install -WhatIf` 로 계획을 본다). 옛 두 작업은 첫 통합 실행이 성공한 뒤 `-FinalizeTransition` 으로 끄기만 하고 지우지 않는다.
 
 - 꺼 둔 옛 작업을 다시 켜거나 수동 실행하지 않는다. 통합 작업과 같은 수집을 한 번 더 한다(2026-09-28 08:03 과 09:00 에 두 번 수집됐다).
 - `apps/srs-spec/scripts/install_task.ps1` 은 통합 전 방식의 등록 스크립트다. 새로 등록할 때 쓰지 않는다.

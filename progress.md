@@ -8,6 +8,11 @@
 - 수정: 임시 폴더를 일반 `mkdir`로 만들어 상위 폴더 권한을 이어받게 했다. 재현 테스트는 수정 전 2개 실패, 수정 후 통과했다.
 - 이미 생긴 폴더의 권한 복구와 예약 설정은 바꾸지 않았다. 복구는 사용자가 관리자 PowerShell에서 직접 실행한다. 다음 예약 실행 결과 폴더가 읽히는지 확인이 필요하다.
 - `apps/srs-spec/src/publish.py`도 `mkdtemp()`를 쓰지만 옛 SRS 작업은 꺼져 있고 사양서 소스 수정 금지 규칙이 있어 그대로 두었다.
+- 후속 확인: 사용자가 관리자 권한으로 09:00 폴더와 `.automation/collections/*/issues` 8개의 권한을 상속으로 되돌렸다. 9개 모두 읽힌다.
+- 같은 날 09:54에 예약 작업을 수동으로 한 번 실행했다(설정 변경 없음). 새 폴더 `20261014_095456-a799187e`는 소유자가 `BUILTIN\Administrators`지만 상위 권한을 이어받아 로그인 사용자가 읽는다. 결과는 `SUCCESS`, 종료 코드 0이다.
+- qa-verification-management-system의 `test_real_export_*` 4개는 복구 뒤와 새 실행 뒤 모두 통과했다.
+- 지식 `REF-scheduler-operations#registered-tasks`를 실제 작업 동작(`run.py issues ... --timestamp`)으로 고쳤다. SPEC REQ-AUTO-004와 README는 아직 `automation.py` 통합 실행을 기준으로 적혀 있어 사용자 확인이 필요하다.
+- 정리 도구는 `.pytest_cache`(2026-09-21 생성, 다른 계정 소유)의 접근 거부로 아직 멈춘다. 관리자 권한 복구가 필요하다.
 
 ## 2026-10-06 최신 사양서 수동 반영
 
