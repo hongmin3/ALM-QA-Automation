@@ -199,3 +199,35 @@ def test_late_failure_retains_completed_phase_counts(exporter, monkeypatch, tmp_
     result = manifests(tmp_path)[0]
     assert code == 1 and not target.exists()
     assert result['successCount'] == 1 and result['pdfStatus'] == 'SUCCESS'
+
+
+def _dacl_is_protected(path: Path) -> bool:
+    """True when the folder ignores its parent's permissions (SE_DACL_PROTECTED)."""
+    import ctypes
+    from ctypes import wintypes
+    advapi = ctypes.WinDLL('advapi32', use_last_error=True)
+    advapi.GetFileSecurityW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, ctypes.c_void_p,
+                                       wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
+    advapi.GetSecurityDescriptorControl.argtypes = [ctypes.c_void_p, ctypes.POINTER(wintypes.WORD),
+                                                    ctypes.POINTER(wintypes.DWORD)]
+    needed = wintypes.DWORD()
+    advapi.GetFileSecurityW(str(path), 4, None, 0, ctypes.byref(needed))  # DACL_SECURITY_INFORMATION
+    buffer = ctypes.create_string_buffer(needed.value)
+    assert advapi.GetFileSecurityW(str(path), 4, buffer, needed, ctypes.byref(needed)), ctypes.get_last_error()
+    control, revision = wintypes.WORD(), wintypes.DWORD()
+    assert advapi.GetSecurityDescriptorControl(buffer, ctypes.byref(control), ctypes.byref(revision))
+    return bool(control.value & 0x1000)  # SE_DACL_PROTECTED
+
+
+@pytest.mark.skipif(sys.platform != 'win32', reason='Windows folder permissions only')
+@pytest.mark.parametrize('status', ['SUCCESS', 'FAILED'])
+def test_run_folder_inherits_parent_permissions(exporter, tmp_path, status):
+    # Python 3.13+ tempfile.mkdtemp() gives Windows folders a protected ACL
+    # (SYSTEM, Administrators, owner). Under an S4U scheduled task the owner is
+    # BUILTIN\Administrators, so the logged-in user could not read the result.
+    from export_run import ExportRun
+    target = tmp_path / 'export'
+    with ExportRun(target) as run:
+        assert not _dacl_is_protected(run.stage)
+        destination = run.finish({'status': status})
+    assert destination.is_dir() and not _dacl_is_protected(destination)

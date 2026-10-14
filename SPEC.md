@@ -179,6 +179,8 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 
 - 입력: 이슈 검색 결과, 출력 경로, 필수 출력 설정.
 - 동작: 실행별 고유 ID와 잠금을 사용하고 새 임시 디렉터리에서 처리한다. 기존 출력은 전체 성공 후에만 새 결과로 교체한다. 실패/부분 결과와 0건 실행도 독립 manifest를 남긴다.
+- 권한: 임시 디렉터리와 확정된 결과 폴더(성공·failed)는 출력 상위 폴더의 Windows 권한을 그대로 이어받는다. 예약 작업(S4U)이 만든 결과도 로그인 사용자가 읽을 수 있어야 한다.
+  이유: S4U 실행은 파일 소유자를 Administrators 그룹으로 남긴다. 상속을 끊고 소유자에게만 권한을 주면 로그인 사용자는 결과를 열 수 없다.
 - 기대 결과: SUCCESS/PARTIAL/FAILED, 검색·선택·성공·실패 건수, 제한 여부, 중복/빈 ID, PDF 상태가 남는다. 부분 성공은 종료 코드 4, 실패는 1, 정상은 0이다. 0건 정상 결과는 유효한 최신 결과로 남되 이전 성공본은 백업으로 보존한다.
 - 예외 처리: 실패한 실행은 이전 결과를 대체하지 않는다. 동시 출력 갱신은 잠금으로 차단한다. 예외/중단의 실행 폴더는 진단을 위해 보존한다.
 - 관련 구현: `apps/issue-export/polarion_query_backup.py`, `apps/issue-export/export_run.py`. 관련 테스트: TEST-OPS-004.
@@ -387,8 +389,8 @@ PAT와 SMTP 자격증명은 환경변수 또는 Git 제외 운영 설정에서�
 ### TEST-OPS-004
 
 - 검증 대상: REQ-OPS-002, REQ-OPS-001.
-- 절차: 합성 클라이언트로 정상/0건/제한/중복/항목 실패/PDF 실패/조회 예외를 주입하고 실제 출력 트리를 비교한다. 파일 교체 실패와 동시 실행을 재현한다.
-- Expected Result: manifest와 종료 코드가 실제 결과와 일치하고 이전 성공본이 보존된다.
+- 절차: 합성 클라이언트로 정상/0건/제한/중복/항목 실패/PDF 실패/조회 예외를 주입하고 실제 출력 트리를 비교한다. 파일 교체 실패와 동시 실행을 재현한다. Windows에서는 임시·결과 폴더의 권한 상속 여부를 확인한다.
+- Expected Result: manifest와 종료 코드가 실제 결과와 일치하고 이전 성공본이 보존된다. 임시·결과 폴더는 상위 폴더 권한을 이어받는다.
 
 ### TEST-OBS-001
 
@@ -435,7 +437,7 @@ PAT와 SMTP 자격증명은 환경변수 또는 Git 제외 운영 설정에서�
 | REQ-ISSUE-001 | `apps/issue-export/polarion_query_backup.py` | TEST-ISSUE-001 | implemented |
 | REQ-ISSUE-002 | `apps/issue-export/polarion_query_backup.py`, `run.py` | TEST-ISSUE-001, TEST-OPS-001 | implemented |
 | REQ-OPS-001 | `apps/issue-export/polarion_query_backup.py`, `apps/srs-spec/main.py`, `apps/srs-spec/src/notify.py` | TEST-OPS-002 | draft |
-| REQ-OPS-002 | `apps/issue-export/export_run.py`, `apps/issue-export/polarion_query_backup.py` | TEST-OPS-004 | verified |
+| REQ-OPS-002 | `apps/issue-export/export_run.py`, `apps/issue-export/polarion_query_backup.py` | TEST-OPS-004, `tests/test_issue_reliability.py` | verified |
 | REQ-OBS-001 | `observation.py`, `run.py` | TEST-OBS-001 | verified |
 | REQ-AUTO-001 | `automation.py`, `automation_core/orchestrator.py`, `automation_core/state.py`, `apps/srs-spec/main.py` | TEST-AUTO-001, `tests/test_automation_orchestrator.py`, `apps/srs-spec/tests/test_main_options.py` | verified |
 | REQ-AUTO-002 | `automation_core/correlation.py`, `observation.py` | TEST-AUTO-002, `tests/test_automation_correlation.py`, `tests/test_observation.py` | verified |

@@ -1,5 +1,14 @@
 # 진행 상태
 
+## 2026-10-14 예약 실행 이슈 결과 폴더 접근 거부 (REQ-OPS-002)
+
+- 09:00 `ALM_QA_Automation_Daily`(S4U, 제한 권한, Python 3.14)가 만든 `apps/issue-export/polarion_backup/20261014_090023-2e25da01`을 로그인 사용자가 열거나 권한 조회할 수 없었다.
+- 원인: `export_run.py`가 `tempfile.mkdtemp()`로 임시 폴더를 만든 뒤 이름만 바꿔 결과 폴더로 썼다. Python 3.13 이상은 이 폴더에 상속을 끊은 SYSTEM·Administrators·OWNER RIGHTS 권한만 붙인다. S4U 실행이 만든 잠금 파일의 소유자는 `BUILTIN\Administrators`였고, 로그인 사용자 토큰에서 Administrators는 거부 전용이라 접근할 수 없다. 09-22 수동 실행 폴더는 같은 권한이지만 소유자가 로그인 사용자라 읽힌다.
+- 같은 원인으로 통합 예약 실행분 `.automation/collections/*/issues` 8개(2026-09-27~10-12)도 읽히지 않는다. 10-06 자동 정리의 `EPERM` 중단도 이 폴더들 때문으로 본다.
+- 수정: 임시 폴더를 일반 `mkdir`로 만들어 상위 폴더 권한을 이어받게 했다. 재현 테스트는 수정 전 2개 실패, 수정 후 통과했다.
+- 이미 생긴 폴더의 권한 복구와 예약 설정은 바꾸지 않았다. 복구는 사용자가 관리자 PowerShell에서 직접 실행한다. 다음 예약 실행 결과 폴더가 읽히는지 확인이 필요하다.
+- `apps/srs-spec/src/publish.py`도 `mkdtemp()`를 쓰지만 옛 SRS 작업은 꺼져 있고 사양서 소스 수정 금지 규칙이 있어 그대로 두었다.
+
 ## 2026-10-06 최신 사양서 수동 반영
 
 - 사용자 요청에 따라 지식파일 폴더의 10월 2일 사양서 PDF 6개를 제거하고, 오늘 생성한 VXvue 사양서1~5와 Licence Manager 사양서로 교체했다. 사양서2는 저장된 오늘 HTML로 다시 생성한 결과를 사용했다.

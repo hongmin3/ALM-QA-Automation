@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="generator" content="botyard render-spec-html v6">
-<meta name="spec-html-renderer" content="v6">
-<meta name="spec-source-sha256" content="5c24e14d22f7cdb389d4c300c6a5f79dc406b650c0a0503c5679a3d9e3aca53e">
+<meta name="generator" content="botyard render-spec-html v7">
+<meta name="spec-html-renderer" content="v7">
+<meta name="spec-source-sha256" content="6827790a2cfa87b9e11090b4070b646e6d6e40aa28d0fa028aa5e86773cced77">
 <title>ALM-QA-Automation 사양서</title>
 <style>:root{--bg:#f7f8fa;--panel:#fff;--text:#1d2330;--muted:#5d6678;--line:#e2e6ee;--accent:#2f6fde;--code:#f1f3f7;
 --req:#2f6fde;--nfr:#8a4fd8;--test:#15907a;--draft:#8a93a6;--implemented:#c98a12;--verified:#1f9d55;--deprecated:#c2413a;--active:#2f6fde;
@@ -16,8 +16,8 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.7 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR","Segoe UI",sans-serif;word-break:keep-all;overflow-wrap:break-word}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
-code{font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code);border-radius:4px;padding:.1em .35em}
-pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow:auto}pre code{background:none;padding:0}
+code{font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--code);border-radius:4px;padding:.1em .35em;overflow-wrap:anywhere}
+pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}pre code{background:none;padding:0}
 .top{background:var(--panel);border-bottom:1px solid var(--line);padding:24px 32px}
 .top h1{margin:0 0 12px;font-size:26px;line-height:1.3}
 .chips,.stats{display:flex;flex-wrap:wrap;gap:8px}.chips{margin-bottom:14px}
@@ -26,7 +26,7 @@ pre{background:var(--code);border:1px solid var(--line);border-radius:8px;paddin
 .stat{border:1px solid var(--line);border-radius:10px;padding:8px 14px;min-width:96px;background:var(--bg)}
 .stat b{display:block;font-size:22px;line-height:1.2}.stat span{font-size:12px;color:var(--muted)}
 .stat.st-draft b{color:var(--draft)}.stat.st-implemented b{color:var(--implemented)}.stat.st-verified b{color:var(--verified)}.stat.st-deprecated b{color:var(--deprecated)}
-.layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:28px;max-width:1280px;margin:0 auto;padding:24px 32px}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:20px;max-width:1800px;margin:0 auto;padding:24px 24px}
 .toc{position:sticky;top:16px;align-self:start;max-height:calc(100vh - 32px);overflow:auto;font-size:13px}
 .toc input{width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);margin-bottom:10px;font:inherit}
 .toc ul{list-style:none;margin:0;padding:0}.toc li{margin:1px 0}.toc a{display:block;padding:2px 8px;border-radius:6px;color:var(--text)}
@@ -41,6 +41,7 @@ main{min-width:0}
 .card{padding:4px 20px 12px}.card p,.card li{max-width:46em}.card p{margin:.4em 0 .9em;line-height:1.85}
 .field{display:grid;grid-template-columns:7.5em minmax(0,1fr);gap:0 18px;border-top:1px solid var(--line);padding:10px 0 2px}
 .field>h4,.field>h5,.field>h6{margin:.15em 0 0;font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.02em}
+.field-body{min-width:0}
 .field-body>:first-child{margin-top:0}.field-body>:last-child{margin-bottom:.4em}
 .field-body ol{list-style:none;counter-reset:step;padding-left:0}
 .field-body ol>li{counter-increment:step;position:relative;padding-left:2.1em;margin:.45em 0}
@@ -56,13 +57,15 @@ p.why{color:var(--muted);border-left:3px solid var(--line);padding-left:10px}.wh
 .idtag{font:600 13px/1.4 ui-monospace,Menlo,Consolas,monospace;background:var(--req);color:#fff;border-radius:6px;padding:2px 8px}
 .kind-nfr .idtag{background:var(--nfr)}.kind-test .idtag{background:var(--test)}
 .idref{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.92em;white-space:nowrap}
+td .idref,.meta .idref{white-space:normal;overflow-wrap:anywhere}td .badge{max-width:100%;white-space:normal;overflow-wrap:anywhere}
 .idtag,.badge{white-space:nowrap}
-.card-meta{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:13px;margin:2px 0 6px}
+.card-meta{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;justify-items:start;font-size:13px;margin:2px 0 6px}
+.meta{min-width:0;max-width:100%;overflow-wrap:anywhere}
 .meta b{color:var(--muted);font-weight:600;margin-right:4px}
 details.history{font-size:13px;margin:4px 0 8px}details.history summary{cursor:pointer;color:var(--muted)}
 details.history ul{margin:6px 0;padding-left:18px}.hist{color:var(--muted);font-size:12px}
 tr.group th{background:var(--bg);text-align:left;font-size:14px;padding-top:12px}.gcode{font:600 12px/1.4 ui-monospace,Menlo,Consolas,monospace;border:1px solid var(--line);border-radius:6px;padding:1px 7px;margin-right:4px}
-table.index td:first-child{white-space:nowrap}table.index td:nth-child(2){min-width:10em}table.index td:nth-child(4){min-width:13em}.untitled{color:var(--muted);font-style:italic}
+table.index th:nth-child(1){width:16%}table.index th:nth-child(2){width:24%}table.index th:nth-child(3){width:12%}table.index th:nth-child(4){width:24%}table.index th:nth-child(5){width:24%}.untitled{color:var(--muted);font-style:italic}
 .toc .toc-id span{font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:var(--text)}
 .toc a.active{background:var(--code);color:var(--accent);font-weight:600;box-shadow:inset 3px 0 0 var(--accent)}.toc a.in-chapter{color:var(--accent)}
 figure.flow{margin:12px 0;overflow-x:auto}figure.flow svg{display:block;max-width:100%;height:auto;margin:0 auto}
@@ -73,16 +76,17 @@ figure.flow{margin:12px 0;overflow-x:auto}figure.flow svg{display:block;max-widt
 .nohist{color:var(--muted)}
 main img{max-width:100%;height:auto;border:1px solid var(--line);border-radius:8px;background:#fff}
 .table-wrap{overflow-x:auto;margin:10px 0}
-table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}
+table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:14px}th,td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
 th{background:var(--code);font-weight:600}
 .badge{display:inline-block;border-radius:999px;padding:0 10px;font-size:12px;font-weight:600;color:#fff;background:var(--draft)}
 .st-implemented.badge{background:var(--implemented)}.st-verified.badge{background:var(--verified)}.st-deprecated.badge{background:var(--deprecated)}.st-active.badge{background:var(--active)}
 blockquote{margin:10px 0;padding:4px 16px;border-left:4px solid var(--line);color:var(--muted)}
 li.task{list-style:none;margin-left:-1.2em}
 hr{border:0;border-top:1px solid var(--line);margin:20px 0}
-footer{max-width:1280px;margin:0 auto;padding:8px 32px 40px;color:var(--muted);font-size:13px}
+footer{max-width:1800px;margin:0 auto;padding:8px 24px 40px;color:var(--muted);font-size:13px}
 .hidden{display:none}
 @media (max-width:860px){.field{grid-template-columns:1fr}.layout{grid-template-columns:1fr;padding:16px}.toc{position:static;max-height:260px}.top{padding:18px 16px}.chapter{padding:2px 14px 12px}footer{padding:8px 16px 32px}}
+@media screen and (max-width:600px){table.responsive,table.responsive tbody,table.responsive tr,table.responsive td{display:block;width:100%}table.responsive thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}table.responsive tr{margin-bottom:12px;border:1px solid var(--line);border-radius:6px}table.responsive td{border:0;border-top:1px solid var(--line)}table.responsive td::before{content:attr(data-label);display:block;font-size:12px;font-weight:600;color:var(--muted)}table.responsive tr.group th{display:block;width:100%;border:0}.card{padding:4px 12px 12px}}
 @media print{.toc,footer{display:none}.layout{display:block;padding:0}.chapter{break-inside:auto;border:0}.card{break-inside:avoid}body{background:#fff}}</style>
 </head>
 <body>
@@ -148,35 +152,35 @@ footer{max-width:1280px;margin:0 auto;padding:8px 32px 40px;color:var(--muted);f
 <main>
 <section class="chapter" id="feature-index">
 <h2>기능 목록</h2>
-<div class="table-wrap"><table class="index">
+<div class="table-wrap"><table class="index responsive">
 <thead><tr><th>ID</th><th>이름</th><th>상태</th><th>구현</th><th>테스트</th></tr></thead>
 <tbody>
 <tr class="group"><th colspan="5"><span class="gcode">CORE</span></th></tr>
-<tr><td><a class="idref" href="#REQ-CORE-001">REQ-CORE-001</a></td><td>— 단일 진입점과 인자 보존</td><td><span class="badge st-implemented">implemented</span></td><td><code>run.py</code>, <code>run.ps1</code>, <code>실행하기.bat</code></td><td><a class="idref" href="#TEST-CORE-001">TEST-CORE-001</a></td></tr>
-<tr><td><a class="idref" href="#REQ-CORE-002">REQ-CORE-002</a></td><td>— 메뉴 입력과 결과 보존 기본값</td><td><span class="badge st-verified">verified</span></td><td><code>run.py</code></td><td><a class="idref" href="#TEST-CORE-001">TEST-CORE-001</a></td></tr>
+<tr><td data-label="ID"><a class="idref" href="#REQ-CORE-001">REQ-CORE-001</a></td><td data-label="이름">— 단일 진입점과 인자 보존</td><td data-label="상태"><span class="badge st-implemented">implemented</span></td><td data-label="구현"><code>run.py</code>, <code>run.ps1</code>, <code>실행하기.bat</code></td><td data-label="테스트"><a class="idref" href="#TEST-CORE-001">TEST-CORE-001</a></td></tr>
+<tr><td data-label="ID"><a class="idref" href="#REQ-CORE-002">REQ-CORE-002</a></td><td data-label="이름">— 메뉴 입력과 결과 보존 기본값</td><td data-label="상태"><span class="badge st-verified">verified</span></td><td data-label="구현"><code>run.py</code></td><td data-label="테스트"><a class="idref" href="#TEST-CORE-001">TEST-CORE-001</a></td></tr>
 <tr class="group"><th colspan="5"><span class="gcode">SRS</span></th></tr>
-<tr><td><a class="idref" href="#REQ-SRS-001">REQ-SRS-001</a></td><td>— 수집과 원본 스냅샷</td><td><span class="badge st-implemented">implemented</span></td><td><code>apps/srs-spec/src/collector.py</code>, <code>apps/srs-spec/src/richtext.py</code>, <code>apps/srs-spec/src/snapshot_store.py</code></td><td><a class="idref" href="#TEST-SRS-001">TEST-SRS-001</a></td></tr>
-<tr><td><a class="idref" href="#REQ-SRS-002">REQ-SRS-002</a></td><td>— 안정적 분할과 PDF 복구</td><td><span class="badge st-implemented">implemented</span></td><td><code>apps/srs-spec/src/partition.py</code>, <code>apps/srs-spec/src/pdf.py</code>, <code>apps/srs-spec/src/render_recovery.py</code></td><td><a class="idref" href="#TEST-SRS-002">TEST-SRS-002</a>, <a class="idref" href="#TEST-OPS-001">TEST-OPS-001</a></td></tr>
-<tr><td><a class="idref" href="#REQ-SRS-003">REQ-SRS-003</a></td><td>— 변경 비교와 기간 리포트</td><td><span class="badge st-implemented">implemented</span></td><td><code>apps/srs-spec/src/diff.py</code>, <code>apps/srs-spec/src/report.py</code>, <code>apps/srs-spec/src/period_report.py</code></td><td><a class="idref" href="#TEST-SRS-003">TEST-SRS-003</a></td></tr>
-<tr><td><a class="idref" href="#REQ-SRS-004">REQ-SRS-004</a></td><td>— 검증 후 배포와 모드 분리</td><td><span class="badge st-implemented">implemented</span></td><td><code>apps/srs-spec/main.py</code>, <code>apps/srs-spec/src/validate.py</code>, <code>apps/srs-spec/src/publish.py</code></td><td><a class="idref" href="#TEST-SRS-004">TEST-SRS-004</a></td></tr>
-<tr><td><a class="idref" href="#REQ-SRS-005">REQ-SRS-005</a></td><td>— 예약·잠금·만회 실행</td><td><span class="badge st-implemented">implemented</span></td><td><code>apps/srs-spec/scripts/install_task.ps1</code>, <code>apps/srs-spec/src/run_lock.py</code>, <code>apps/srs-spec/src/run_marker.py</code></td><td><a class="idref" href="#TEST-SRS-005">TEST-SRS-005</a></td></tr>
+<tr><td data-label="ID"><a class="idref" href="#REQ-SRS-001">REQ-SRS-001</a></td><td data-label="이름">— 수집과 원본 스냅샷</td><td data-label="상태"><span class="badge st-implemented">implemented</span></td><td data-label="구현"><code>apps/srs-spec/src/collector.py</code>, <code>apps/srs-spec/src/richtext.py</code>, <code>apps/srs-spec/src/snapshot_store.py</code></td><td data-label="테스트"><a class="idref" href="#TEST-SRS-001">TEST-SRS-001</a></td></tr>
+<tr><td data-label="ID"><a class="idref" href="#REQ-SRS-002">REQ-SRS-002</a></td><td data-label="이름">— 안정적 분할과 PDF 복구</td><td data-label="상태"><span class="badge st-implemented">implemented</span></td><td data-label="구현"><code>apps/srs-spec/src/partition.py</code>, <code>apps/srs-spec/src/pdf.py</code>, <code>apps/srs-spec/src/render_recovery.py</code></td><td data-label="테스트"><a class="idref" href="#TEST-SRS-002">TEST-SRS-002</a>, <a class="idref" href="#TEST-OPS-001">TEST-OPS-001</a></td></tr>
+<tr><td data-label="ID"><a class="idref" href="#REQ-SRS-003">REQ-SRS-003</a></td><td data-label="이름">— 변경 비교와 기간 리포트</td><td data-label="상태"><span class="badge st-implemented">implemented</span></td><td data-label="구현"><code>apps/srs-spec/src/diff.py</code>, <code>apps/srs-spec/src/report.py</code>, <code>apps/srs-spec/src/period_report.py</code></td><td data-label="테스트"><a class="idref" href="#TEST-SRS-003">TEST-SRS-003</a></td></tr>
+<tr><td data-label="ID"><a class="idref" href="#REQ-SRS-004">REQ-SRS-004</a></td><td data-label="이름">— 검증 후 배포와 모드 분리</td><td data-label="상태"><span class="badge st-implemented">implemented</span></td><td data-label="구현"><code>apps/srs-spec/main.py</code>, <code>apps/srs-spec/src/validate.py</code>, <code>apps/srs-spec/src/publish.py</code></td><td data-label="테스트"><a class="idref" href="#TEST-SRS-004">TEST-SRS-004</a></td></tr>
+<tr><td data-label="ID"><a class="idref" href="#REQ-SRS-005">REQ-SRS-005</a></td><td data-label="이름">— 예약·잠금·만회 실행</td><td data-label="상태"><span class="badge st-implemented">implemented</span></td><td data-label="구현"><code>apps/srs-spec/scripts/install_task.ps1</code>, <code>apps/srs-spec/src/run_lock.py</code>, <code>apps/srs-spec/src/run_marker.py</code></td><td data-label="테스트"><a class="idref" href="#TEST-SRS-005">TEST-SRS-005</a></td></tr>
 <tr class="group"><th colspan="5"><span class="gcode">ISSUE</span></th></tr>
-<tr><td><a class="idref" href="#REQ-ISSUE-001">REQ-ISSUE-001</a></td><td>— 이슈 대상 지정과 수집</td><td><span class="badge st-implemented">implemented</span></td><td><code>apps/issue-export/polarion_query_backup.py</code></td><td><a class="idref" href="#TEST-ISSUE-001">TEST-ISSUE-001</a></td></tr>
-<tr><td><a class="idref" href="#REQ-ISSUE-002">REQ-ISSUE-002</a></td><td>— 문서 생성과 보존</td><td><span class="badge st-implemented">implemented</span></td><td><code>apps/issue-export/polarion_query_backup.py</code>, <code>run.py</code></td><td><a class="idref" href="#TEST-ISSUE-001">TEST-ISSUE-001</a>, <a class="idref" href="#TEST-OPS-001">TEST-OPS-001</a></td></tr>
+<tr><td data-label="ID"><a class="idref" href="#REQ-ISSUE-001">REQ-ISSUE-001</a></td><td data-label="이름">— 이슈 대상 지정과 수집</td><td data-label="상태"><span class="badge st-implemented">implemented</span></td><td data-label="구현"><code>apps/issue-export/polarion_query_backup.py</code></td><td data-label="테스트"><a class="idref" href="#TEST-ISSUE-001">TEST-ISSUE-001</a></td></tr>
+<tr><td data-label="ID"><a class="idref" href="#REQ-ISSUE-002">REQ-ISSUE-002</a></td><td data-label="이름">— 문서 생성과 보존</td><td data-label="상태"><span class="badge st-implemented">implemented</span></td><td data-label="구현"><code>apps/issue-export/polarion_query_backup.py</code>, <code>run.py</code></td><td data-label="테스트"><a class="idref" href="#TEST-ISSUE-001">TEST-ISSUE-001</a>, <a class="idref" href="#TEST-OPS-001">TEST-OPS-001</a></td></tr>
 <tr class="group"><th colspan="5"><span class="gcode">OPS</span></th></tr>
-<tr><td><a class="idref" href="#REQ-OPS-001">REQ-OPS-001</a></td><td>— 결과 상태와 알림의 신뢰성</td><td><span class="badge st-draft">draft</span></td><td><code>apps/issue-export/polarion_query_backup.py</code>, <code>apps/srs-spec/main.py</code>, <code>apps/srs-spec/src/notify.py</code></td><td><a class="idref" href="#TEST-OPS-002">TEST-OPS-002</a></td></tr>
-<tr><td><a class="idref" href="#REQ-OPS-002">REQ-OPS-002</a></td><td>— 이슈 실행 결과와 안전한 결과 확정</td><td><span class="badge st-verified">verified</span></td><td><code>apps/issue-export/export_run.py</code>, <code>apps/issue-export/polarion_query_backup.py</code></td><td><a class="idref" href="#TEST-OPS-004">TEST-OPS-004</a></td></tr>
+<tr><td data-label="ID"><a class="idref" href="#REQ-OPS-001">REQ-OPS-001</a></td><td data-label="이름">— 결과 상태와 알림의 신뢰성</td><td data-label="상태"><span class="badge st-draft">draft</span></td><td data-label="구현"><code>apps/issue-export/polarion_query_backup.py</code>, <code>apps/srs-spec/main.py</code>, <code>apps/srs-spec/src/notify.py</code></td><td data-label="테스트"><a class="idref" href="#TEST-OPS-002">TEST-OPS-002</a></td></tr>
+<tr><td data-label="ID"><a class="idref" href="#REQ-OPS-002">REQ-OPS-002</a></td><td data-label="이름">— 이슈 실행 결과와 안전한 결과 확정</td><td data-label="상태"><span class="badge st-verified">verified</span></td><td data-label="구현"><code>apps/issue-export/export_run.py</code>, <code>apps/issue-export/polarion_query_backup.py</code></td><td data-label="테스트"><a class="idref" href="#TEST-OPS-004">TEST-OPS-004</a>, <code>tests/test_issue_reliability.py</code></td></tr>
 <tr class="group"><th colspan="5"><span class="gcode">OBS</span></th></tr>
-<tr><td><a class="idref" href="#REQ-OBS-001">REQ-OBS-001</a></td><td>— 알림 없는 관찰 분석</td><td><span class="badge st-verified">verified</span></td><td><code>observation.py</code>, <code>run.py</code></td><td><a class="idref" href="#TEST-OBS-001">TEST-OBS-001</a></td></tr>
+<tr><td data-label="ID"><a class="idref" href="#REQ-OBS-001">REQ-OBS-001</a></td><td data-label="이름">— 알림 없는 관찰 분석</td><td data-label="상태"><span class="badge st-verified">verified</span></td><td data-label="구현"><code>observation.py</code>, <code>run.py</code></td><td data-label="테스트"><a class="idref" href="#TEST-OBS-001">TEST-OBS-001</a></td></tr>
 <tr class="group"><th colspan="5"><span class="gcode">AUTO</span></th></tr>
-<tr><td><a class="idref" href="#REQ-AUTO-001">REQ-AUTO-001</a></td><td>— 통합 수집 오케스트레이션</td><td><span class="badge st-verified">verified</span></td><td><code>automation.py</code>, <code>automation_core/orchestrator.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/main.py</code></td><td><a class="idref" href="#TEST-AUTO-001">TEST-AUTO-001</a>, <code>tests/test_automation_orchestrator.py</code>, <code>apps/srs-spec/tests/test_main_options.py</code></td></tr>
-<tr><td><a class="idref" href="#REQ-AUTO-002">REQ-AUTO-002</a></td><td>— SRS·이슈 연계와 검토 우선순위</td><td><span class="badge st-verified">verified</span></td><td><code>automation_core/correlation.py</code>, <code>observation.py</code></td><td><a class="idref" href="#TEST-AUTO-002">TEST-AUTO-002</a>, <code>tests/test_automation_correlation.py</code>, <code>tests/test_observation.py</code></td></tr>
-<tr><td><a class="idref" href="#REQ-AUTO-003">REQ-AUTO-003</a></td><td>— 영속 이메일 대기함과 재시도</td><td><span class="badge st-verified">verified</span></td><td><code>automation_core/email.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/src/notify.py</code></td><td><a class="idref" href="#TEST-AUTO-003">TEST-AUTO-003</a>, <code>tests/test_automation_email.py</code>, <code>apps/srs-spec/tests/test_notify.py</code></td></tr>
-<tr><td><a class="idref" href="#REQ-AUTO-004">REQ-AUTO-004</a></td><td>— 평일 통합 예약 작업과 안전한 전환</td><td><span class="badge st-verified">verified</span></td><td><code>scripts/install_automation_task.ps1</code></td><td><a class="idref" href="#TEST-AUTO-004">TEST-AUTO-004</a>, <code>tests/test_automation_scheduler.py</code></td></tr>
+<tr><td data-label="ID"><a class="idref" href="#REQ-AUTO-001">REQ-AUTO-001</a></td><td data-label="이름">— 통합 수집 오케스트레이션</td><td data-label="상태"><span class="badge st-verified">verified</span></td><td data-label="구현"><code>automation.py</code>, <code>automation_core/orchestrator.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/main.py</code></td><td data-label="테스트"><a class="idref" href="#TEST-AUTO-001">TEST-AUTO-001</a>, <code>tests/test_automation_orchestrator.py</code>, <code>apps/srs-spec/tests/test_main_options.py</code></td></tr>
+<tr><td data-label="ID"><a class="idref" href="#REQ-AUTO-002">REQ-AUTO-002</a></td><td data-label="이름">— SRS·이슈 연계와 검토 우선순위</td><td data-label="상태"><span class="badge st-verified">verified</span></td><td data-label="구현"><code>automation_core/correlation.py</code>, <code>observation.py</code></td><td data-label="테스트"><a class="idref" href="#TEST-AUTO-002">TEST-AUTO-002</a>, <code>tests/test_automation_correlation.py</code>, <code>tests/test_observation.py</code></td></tr>
+<tr><td data-label="ID"><a class="idref" href="#REQ-AUTO-003">REQ-AUTO-003</a></td><td data-label="이름">— 영속 이메일 대기함과 재시도</td><td data-label="상태"><span class="badge st-verified">verified</span></td><td data-label="구현"><code>automation_core/email.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/src/notify.py</code></td><td data-label="테스트"><a class="idref" href="#TEST-AUTO-003">TEST-AUTO-003</a>, <code>tests/test_automation_email.py</code>, <code>apps/srs-spec/tests/test_notify.py</code></td></tr>
+<tr><td data-label="ID"><a class="idref" href="#REQ-AUTO-004">REQ-AUTO-004</a></td><td data-label="이름">— 평일 통합 예약 작업과 안전한 전환</td><td data-label="상태"><span class="badge st-verified">verified</span></td><td data-label="구현"><code>scripts/install_automation_task.ps1</code></td><td data-label="테스트"><a class="idref" href="#TEST-AUTO-004">TEST-AUTO-004</a>, <code>tests/test_automation_scheduler.py</code></td></tr>
 <tr class="group"><th colspan="5"><span class="gcode">NFR OPS</span></th></tr>
-<tr><td><a class="idref" href="#NFR-OPS-001">NFR-OPS-001</a></td><td>— 기존 기능·데이터·이력 보존</td><td><span class="badge st-verified">verified</span></td><td><code>run.py</code>, <code>.gitignore</code></td><td><a class="idref" href="#TEST-OPS-003">TEST-OPS-003</a></td></tr>
+<tr><td data-label="ID"><a class="idref" href="#NFR-OPS-001">NFR-OPS-001</a></td><td data-label="이름">— 기존 기능·데이터·이력 보존</td><td data-label="상태"><span class="badge st-verified">verified</span></td><td data-label="구현"><code>run.py</code>, <code>.gitignore</code></td><td data-label="테스트"><a class="idref" href="#TEST-OPS-003">TEST-OPS-003</a></td></tr>
 <tr class="group"><th colspan="5"><span class="gcode">NFR SEC</span></th></tr>
-<tr><td><a class="idref" href="#NFR-SEC-001">NFR-SEC-001</a></td><td>— 비밀값과 운영 데이터 분리</td><td><span class="badge st-implemented">implemented</span></td><td><code>.gitignore</code>, <code>apps/srs-spec/.gitignore</code>, <code>apps/issue-export/.gitignore</code>, <code>apps/srs-spec/src/richtext.py</code></td><td><a class="idref" href="#TEST-SEC-001">TEST-SEC-001</a></td></tr>
+<tr><td data-label="ID"><a class="idref" href="#NFR-SEC-001">NFR-SEC-001</a></td><td data-label="이름">— 비밀값과 운영 데이터 분리</td><td data-label="상태"><span class="badge st-implemented">implemented</span></td><td data-label="구현"><code>.gitignore</code>, <code>apps/srs-spec/.gitignore</code>, <code>apps/issue-export/.gitignore</code>, <code>apps/srs-spec/src/richtext.py</code></td><td data-label="테스트"><a class="idref" href="#TEST-SEC-001">TEST-SEC-001</a></td></tr>
 </tbody>
 </table></div>
 </section>
@@ -430,9 +434,10 @@ footer{max-width:1280px;margin:0 auto;padding:8px 32px 40px;color:var(--muted);f
 </section>
 <section class="card kind-req" id="REQ-OPS-002">
 <h3><span class="idtag">REQ-OPS-002</span> — 이슈 실행 결과와 안전한 결과 확정</h3>
-<div class="card-meta"><span class="badge st-verified">verified</span><span class="meta"><b>구현</b> <code>apps/issue-export/export_run.py</code>, <code>apps/issue-export/polarion_query_backup.py</code></span><span class="meta"><b>테스트</b> <a class="idref" href="#TEST-OPS-004">TEST-OPS-004</a></span><span class="meta"><b>참조됨</b> <a class="idref" href="#REQ-OPS-001">REQ-OPS-001</a>, <a class="idref" href="#TEST-OPS-004">TEST-OPS-004</a></span></div>
-<details class="history"><summary>변경 이력 2</summary>
+<div class="card-meta"><span class="badge st-verified">verified</span><span class="meta"><b>구현</b> <code>apps/issue-export/export_run.py</code>, <code>apps/issue-export/polarion_query_backup.py</code></span><span class="meta"><b>테스트</b> <a class="idref" href="#TEST-OPS-004">TEST-OPS-004</a>, <code>tests/test_issue_reliability.py</code></span><span class="meta"><b>참조됨</b> <a class="idref" href="#REQ-OPS-001">REQ-OPS-001</a>, <a class="idref" href="#TEST-OPS-004">TEST-OPS-004</a></span></div>
+<details class="history"><summary>변경 이력 3</summary>
 <ul>
+<li><span class="hist">[Unreleased] · Fixed</span> <a class="idref" href="#REQ-OPS-002">REQ-OPS-002</a>: 예약 작업이 만든 이슈 결과 폴더를 로그인 사용자가 열 수 없던 결함을 고쳤다. Python 3.13 이상의 <code>tempfile.mkdtemp()</code>는 Windows 폴더에 SYSTEM·Administrators·소유자만 남긴 권한을 붙이고, S4U 예약 실행은 소유자를 Administrators 그룹으로 남긴다. 이제 임시 폴더를 일반 폴더로 만들어 상위 폴더 권한을 이어받는다. 이미 만들어진 폴더는 관리자 권한으로 따로 복구해야 한다.</li>
 <li><span class="hist">[Unreleased] · Added</span> <a class="idref" href="#REQ-OPS-002">REQ-OPS-002</a>: 이슈 실행 잠금과 staging/previous/failed 출력, 결과 상태와 건수·PDF·이미지 실패 기록.</li>
 <li><span class="hist">[Unreleased] · Changed</span> <a class="idref" href="#REQ-SRS-004">REQ-SRS-004</a> / <a class="idref" href="#REQ-OPS-002">REQ-OPS-002</a> / <a class="idref" href="#REQ-OBS-001">REQ-OBS-001</a> / <a class="idref" href="#REQ-AUTO-001">REQ-AUTO-001</a> / <a class="idref" href="#REQ-AUTO-002">REQ-AUTO-002</a> / <a class="idref" href="#REQ-AUTO-003">REQ-AUTO-003</a> / <a class="idref" href="#REQ-AUTO-004">REQ-AUTO-004</a>: 추적성 표 Status 칸에는 값(<code>verified</code>·<code>implemented</code>)만 남기고, 함께 적혀 있던 검증 범위 설명은 각 요구사항 절의 <code>참고</code> 상자로 옮겼다(공통 키트 workflow v6). 사양 내용은 바꾸지 않았다.</li>
 </ul>
@@ -440,6 +445,9 @@ footer{max-width:1280px;margin:0 auto;padding:8px 32px 40px;color:var(--muted);f
 <ul>
 <li>입력: 이슈 검색 결과, 출력 경로, 필수 출력 설정.</li>
 <li>동작: 실행별 고유 ID와 잠금을 사용하고 새 임시 디렉터리에서 처리한다. 기존 출력은 전체 성공 후에만 새 결과로 교체한다. 실패/부분 결과와 0건 실행도 독립 manifest를 남긴다.</li>
+<li>권한: 임시 디렉터리와 확정된 결과 폴더(성공·failed)는 출력 상위 폴더의 Windows 권한을 그대로 이어받는다. 예약 작업(S4U)이 만든 결과도 로그인 사용자가 읽을 수 있어야 한다.
+이유: S4U 실행은 파일 소유자를 Administrators 그룹으로 남긴다. 상속을 끊고 소유자에게만 권한을 주면 로그인 사용자는 결과를 열 수 없다.
+</li>
 <li>기대 결과: SUCCESS/PARTIAL/FAILED, 검색·선택·성공·실패 건수, 제한 여부, 중복/빈 ID, PDF 상태가 남는다. 부분 성공은 종료 코드 4, 실패는 1, 정상은 0이다. 0건 정상 결과는 유효한 최신 결과로 남되 이전 성공본은 백업으로 보존한다.</li>
 <li>예외 처리: 실패한 실행은 이전 결과를 대체하지 않는다. 동시 출력 갱신은 잠금으로 차단한다. 예외/중단의 실행 폴더는 진단을 위해 보존한다.</li>
 <li>관련 구현: <code>apps/issue-export/polarion_query_backup.py</code>, <code>apps/issue-export/export_run.py</code>. 관련 테스트: <a class="idref" href="#TEST-OPS-004">TEST-OPS-004</a>.</li>
@@ -752,8 +760,8 @@ footer{max-width:1280px;margin:0 auto;padding:8px 32px 40px;color:var(--muted);f
 <div class="card-meta"><span class="meta"><b>참조됨</b> <a class="idref" href="#REQ-OPS-002">REQ-OPS-002</a>, <a class="idref" href="#TEST-OPS-002">TEST-OPS-002</a></span></div>
 <ul>
 <li>검증 대상: <a class="idref" href="#REQ-OPS-002">REQ-OPS-002</a>, <a class="idref" href="#REQ-OPS-001">REQ-OPS-001</a>.</li>
-<li>절차: 합성 클라이언트로 정상/0건/제한/중복/항목 실패/PDF 실패/조회 예외를 주입하고 실제 출력 트리를 비교한다. 파일 교체 실패와 동시 실행을 재현한다.</li>
-<li>Expected Result: manifest와 종료 코드가 실제 결과와 일치하고 이전 성공본이 보존된다.</li>
+<li>절차: 합성 클라이언트로 정상/0건/제한/중복/항목 실패/PDF 실패/조회 예외를 주입하고 실제 출력 트리를 비교한다. 파일 교체 실패와 동시 실행을 재현한다. Windows에서는 임시·결과 폴더의 권한 상속 여부를 확인한다.</li>
+<li>Expected Result: manifest와 종료 코드가 실제 결과와 일치하고 이전 성공본이 보존된다. 임시·결과 폴더는 상위 폴더 권한을 이어받는다.</li>
 </ul>
 </section>
 <section class="card kind-test" id="TEST-OBS-001">
@@ -805,27 +813,27 @@ footer{max-width:1280px;margin:0 auto;padding:8px 32px 40px;color:var(--muted);f
 </section>
 <section class="chapter" id="sec-12">
 <h2>12. 요구사항 추적성</h2>
-<div class="table-wrap"><table>
+<div class="table-wrap"><table class="responsive">
 <thead><tr><th>Requirement</th><th>Implementation</th><th>Test</th><th>Status</th></tr></thead>
 <tbody>
-<tr><td><a class="idref" href="#REQ-CORE-001">REQ-CORE-001</a></td><td><code>run.py</code>, <code>run.ps1</code>, <code>실행하기.bat</code></td><td><a class="idref" href="#TEST-CORE-001">TEST-CORE-001</a></td><td><span class="badge st-implemented">implemented</span></td></tr>
-<tr><td><a class="idref" href="#REQ-CORE-002">REQ-CORE-002</a></td><td><code>run.py</code></td><td><a class="idref" href="#TEST-CORE-001">TEST-CORE-001</a></td><td><span class="badge st-verified">verified</span></td></tr>
-<tr><td><a class="idref" href="#REQ-SRS-001">REQ-SRS-001</a></td><td><code>apps/srs-spec/src/collector.py</code>, <code>apps/srs-spec/src/richtext.py</code>, <code>apps/srs-spec/src/snapshot_store.py</code></td><td><a class="idref" href="#TEST-SRS-001">TEST-SRS-001</a></td><td><span class="badge st-implemented">implemented</span></td></tr>
-<tr><td><a class="idref" href="#REQ-SRS-002">REQ-SRS-002</a></td><td><code>apps/srs-spec/src/partition.py</code>, <code>apps/srs-spec/src/pdf.py</code>, <code>apps/srs-spec/src/render_recovery.py</code></td><td><a class="idref" href="#TEST-SRS-002">TEST-SRS-002</a>, <a class="idref" href="#TEST-OPS-001">TEST-OPS-001</a></td><td><span class="badge st-implemented">implemented</span></td></tr>
-<tr><td><a class="idref" href="#REQ-SRS-003">REQ-SRS-003</a></td><td><code>apps/srs-spec/src/diff.py</code>, <code>apps/srs-spec/src/report.py</code>, <code>apps/srs-spec/src/period_report.py</code></td><td><a class="idref" href="#TEST-SRS-003">TEST-SRS-003</a></td><td><span class="badge st-implemented">implemented</span></td></tr>
-<tr><td><a class="idref" href="#REQ-SRS-004">REQ-SRS-004</a></td><td><code>apps/srs-spec/main.py</code>, <code>apps/srs-spec/src/validate.py</code>, <code>apps/srs-spec/src/publish.py</code></td><td><a class="idref" href="#TEST-SRS-004">TEST-SRS-004</a></td><td><span class="badge st-implemented">implemented</span></td></tr>
-<tr><td><a class="idref" href="#REQ-SRS-005">REQ-SRS-005</a></td><td><code>apps/srs-spec/scripts/install_task.ps1</code>, <code>apps/srs-spec/src/run_lock.py</code>, <code>apps/srs-spec/src/run_marker.py</code></td><td><a class="idref" href="#TEST-SRS-005">TEST-SRS-005</a></td><td><span class="badge st-implemented">implemented</span></td></tr>
-<tr><td><a class="idref" href="#REQ-ISSUE-001">REQ-ISSUE-001</a></td><td><code>apps/issue-export/polarion_query_backup.py</code></td><td><a class="idref" href="#TEST-ISSUE-001">TEST-ISSUE-001</a></td><td><span class="badge st-implemented">implemented</span></td></tr>
-<tr><td><a class="idref" href="#REQ-ISSUE-002">REQ-ISSUE-002</a></td><td><code>apps/issue-export/polarion_query_backup.py</code>, <code>run.py</code></td><td><a class="idref" href="#TEST-ISSUE-001">TEST-ISSUE-001</a>, <a class="idref" href="#TEST-OPS-001">TEST-OPS-001</a></td><td><span class="badge st-implemented">implemented</span></td></tr>
-<tr><td><a class="idref" href="#REQ-OPS-001">REQ-OPS-001</a></td><td><code>apps/issue-export/polarion_query_backup.py</code>, <code>apps/srs-spec/main.py</code>, <code>apps/srs-spec/src/notify.py</code></td><td><a class="idref" href="#TEST-OPS-002">TEST-OPS-002</a></td><td><span class="badge st-draft">draft</span></td></tr>
-<tr><td><a class="idref" href="#REQ-OPS-002">REQ-OPS-002</a></td><td><code>apps/issue-export/export_run.py</code>, <code>apps/issue-export/polarion_query_backup.py</code></td><td><a class="idref" href="#TEST-OPS-004">TEST-OPS-004</a></td><td><span class="badge st-verified">verified</span></td></tr>
-<tr><td><a class="idref" href="#REQ-OBS-001">REQ-OBS-001</a></td><td><code>observation.py</code>, <code>run.py</code></td><td><a class="idref" href="#TEST-OBS-001">TEST-OBS-001</a></td><td><span class="badge st-verified">verified</span></td></tr>
-<tr><td><a class="idref" href="#REQ-AUTO-001">REQ-AUTO-001</a></td><td><code>automation.py</code>, <code>automation_core/orchestrator.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/main.py</code></td><td><a class="idref" href="#TEST-AUTO-001">TEST-AUTO-001</a>, <code>tests/test_automation_orchestrator.py</code>, <code>apps/srs-spec/tests/test_main_options.py</code></td><td><span class="badge st-verified">verified</span></td></tr>
-<tr><td><a class="idref" href="#REQ-AUTO-002">REQ-AUTO-002</a></td><td><code>automation_core/correlation.py</code>, <code>observation.py</code></td><td><a class="idref" href="#TEST-AUTO-002">TEST-AUTO-002</a>, <code>tests/test_automation_correlation.py</code>, <code>tests/test_observation.py</code></td><td><span class="badge st-verified">verified</span></td></tr>
-<tr><td><a class="idref" href="#REQ-AUTO-003">REQ-AUTO-003</a></td><td><code>automation_core/email.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/src/notify.py</code></td><td><a class="idref" href="#TEST-AUTO-003">TEST-AUTO-003</a>, <code>tests/test_automation_email.py</code>, <code>apps/srs-spec/tests/test_notify.py</code></td><td><span class="badge st-verified">verified</span></td></tr>
-<tr><td><a class="idref" href="#REQ-AUTO-004">REQ-AUTO-004</a></td><td><code>scripts/install_automation_task.ps1</code></td><td><a class="idref" href="#TEST-AUTO-004">TEST-AUTO-004</a>, <code>tests/test_automation_scheduler.py</code></td><td><span class="badge st-verified">verified</span></td></tr>
-<tr><td><a class="idref" href="#NFR-OPS-001">NFR-OPS-001</a></td><td><code>run.py</code>, <code>.gitignore</code></td><td><a class="idref" href="#TEST-OPS-003">TEST-OPS-003</a></td><td><span class="badge st-verified">verified</span></td></tr>
-<tr><td><a class="idref" href="#NFR-SEC-001">NFR-SEC-001</a></td><td><code>.gitignore</code>, <code>apps/srs-spec/.gitignore</code>, <code>apps/issue-export/.gitignore</code>, <code>apps/srs-spec/src/richtext.py</code></td><td><a class="idref" href="#TEST-SEC-001">TEST-SEC-001</a></td><td><span class="badge st-implemented">implemented</span></td></tr>
+<tr><td data-label="Requirement"><a class="idref" href="#REQ-CORE-001">REQ-CORE-001</a></td><td data-label="Implementation"><code>run.py</code>, <code>run.ps1</code>, <code>실행하기.bat</code></td><td data-label="Test"><a class="idref" href="#TEST-CORE-001">TEST-CORE-001</a></td><td data-label="Status"><span class="badge st-implemented">implemented</span></td></tr>
+<tr><td data-label="Requirement"><a class="idref" href="#REQ-CORE-002">REQ-CORE-002</a></td><td data-label="Implementation"><code>run.py</code></td><td data-label="Test"><a class="idref" href="#TEST-CORE-001">TEST-CORE-001</a></td><td data-label="Status"><span class="badge st-verified">verified</span></td></tr>
+<tr><td data-label="Requirement"><a class="idref" href="#REQ-SRS-001">REQ-SRS-001</a></td><td data-label="Implementation"><code>apps/srs-spec/src/collector.py</code>, <code>apps/srs-spec/src/richtext.py</code>, <code>apps/srs-spec/src/snapshot_store.py</code></td><td data-label="Test"><a class="idref" href="#TEST-SRS-001">TEST-SRS-001</a></td><td data-label="Status"><span class="badge st-implemented">implemented</span></td></tr>
+<tr><td data-label="Requirement"><a class="idref" href="#REQ-SRS-002">REQ-SRS-002</a></td><td data-label="Implementation"><code>apps/srs-spec/src/partition.py</code>, <code>apps/srs-spec/src/pdf.py</code>, <code>apps/srs-spec/src/render_recovery.py</code></td><td data-label="Test"><a class="idref" href="#TEST-SRS-002">TEST-SRS-002</a>, <a class="idref" href="#TEST-OPS-001">TEST-OPS-001</a></td><td data-label="Status"><span class="badge st-implemented">implemented</span></td></tr>
+<tr><td data-label="Requirement"><a class="idref" href="#REQ-SRS-003">REQ-SRS-003</a></td><td data-label="Implementation"><code>apps/srs-spec/src/diff.py</code>, <code>apps/srs-spec/src/report.py</code>, <code>apps/srs-spec/src/period_report.py</code></td><td data-label="Test"><a class="idref" href="#TEST-SRS-003">TEST-SRS-003</a></td><td data-label="Status"><span class="badge st-implemented">implemented</span></td></tr>
+<tr><td data-label="Requirement"><a class="idref" href="#REQ-SRS-004">REQ-SRS-004</a></td><td data-label="Implementation"><code>apps/srs-spec/main.py</code>, <code>apps/srs-spec/src/validate.py</code>, <code>apps/srs-spec/src/publish.py</code></td><td data-label="Test"><a class="idref" href="#TEST-SRS-004">TEST-SRS-004</a></td><td data-label="Status"><span class="badge st-implemented">implemented</span></td></tr>
+<tr><td data-label="Requirement"><a class="idref" href="#REQ-SRS-005">REQ-SRS-005</a></td><td data-label="Implementation"><code>apps/srs-spec/scripts/install_task.ps1</code>, <code>apps/srs-spec/src/run_lock.py</code>, <code>apps/srs-spec/src/run_marker.py</code></td><td data-label="Test"><a class="idref" href="#TEST-SRS-005">TEST-SRS-005</a></td><td data-label="Status"><span class="badge st-implemented">implemented</span></td></tr>
+<tr><td data-label="Requirement"><a class="idref" href="#REQ-ISSUE-001">REQ-ISSUE-001</a></td><td data-label="Implementation"><code>apps/issue-export/polarion_query_backup.py</code></td><td data-label="Test"><a class="idref" href="#TEST-ISSUE-001">TEST-ISSUE-001</a></td><td data-label="Status"><span class="badge st-implemented">implemented</span></td></tr>
+<tr><td data-label="Requirement"><a class="idref" href="#REQ-ISSUE-002">REQ-ISSUE-002</a></td><td data-label="Implementation"><code>apps/issue-export/polarion_query_backup.py</code>, <code>run.py</code></td><td data-label="Test"><a class="idref" href="#TEST-ISSUE-001">TEST-ISSUE-001</a>, <a class="idref" href="#TEST-OPS-001">TEST-OPS-001</a></td><td data-label="Status"><span class="badge st-implemented">implemented</span></td></tr>
+<tr><td data-label="Requirement"><a class="idref" href="#REQ-OPS-001">REQ-OPS-001</a></td><td data-label="Implementation"><code>apps/issue-export/polarion_query_backup.py</code>, <code>apps/srs-spec/main.py</code>, <code>apps/srs-spec/src/notify.py</code></td><td data-label="Test"><a class="idref" href="#TEST-OPS-002">TEST-OPS-002</a></td><td data-label="Status"><span class="badge st-draft">draft</span></td></tr>
+<tr><td data-label="Requirement"><a class="idref" href="#REQ-OPS-002">REQ-OPS-002</a></td><td data-label="Implementation"><code>apps/issue-export/export_run.py</code>, <code>apps/issue-export/polarion_query_backup.py</code></td><td data-label="Test"><a class="idref" href="#TEST-OPS-004">TEST-OPS-004</a>, <code>tests/test_issue_reliability.py</code></td><td data-label="Status"><span class="badge st-verified">verified</span></td></tr>
+<tr><td data-label="Requirement"><a class="idref" href="#REQ-OBS-001">REQ-OBS-001</a></td><td data-label="Implementation"><code>observation.py</code>, <code>run.py</code></td><td data-label="Test"><a class="idref" href="#TEST-OBS-001">TEST-OBS-001</a></td><td data-label="Status"><span class="badge st-verified">verified</span></td></tr>
+<tr><td data-label="Requirement"><a class="idref" href="#REQ-AUTO-001">REQ-AUTO-001</a></td><td data-label="Implementation"><code>automation.py</code>, <code>automation_core/orchestrator.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/main.py</code></td><td data-label="Test"><a class="idref" href="#TEST-AUTO-001">TEST-AUTO-001</a>, <code>tests/test_automation_orchestrator.py</code>, <code>apps/srs-spec/tests/test_main_options.py</code></td><td data-label="Status"><span class="badge st-verified">verified</span></td></tr>
+<tr><td data-label="Requirement"><a class="idref" href="#REQ-AUTO-002">REQ-AUTO-002</a></td><td data-label="Implementation"><code>automation_core/correlation.py</code>, <code>observation.py</code></td><td data-label="Test"><a class="idref" href="#TEST-AUTO-002">TEST-AUTO-002</a>, <code>tests/test_automation_correlation.py</code>, <code>tests/test_observation.py</code></td><td data-label="Status"><span class="badge st-verified">verified</span></td></tr>
+<tr><td data-label="Requirement"><a class="idref" href="#REQ-AUTO-003">REQ-AUTO-003</a></td><td data-label="Implementation"><code>automation_core/email.py</code>, <code>automation_core/state.py</code>, <code>apps/srs-spec/src/notify.py</code></td><td data-label="Test"><a class="idref" href="#TEST-AUTO-003">TEST-AUTO-003</a>, <code>tests/test_automation_email.py</code>, <code>apps/srs-spec/tests/test_notify.py</code></td><td data-label="Status"><span class="badge st-verified">verified</span></td></tr>
+<tr><td data-label="Requirement"><a class="idref" href="#REQ-AUTO-004">REQ-AUTO-004</a></td><td data-label="Implementation"><code>scripts/install_automation_task.ps1</code></td><td data-label="Test"><a class="idref" href="#TEST-AUTO-004">TEST-AUTO-004</a>, <code>tests/test_automation_scheduler.py</code></td><td data-label="Status"><span class="badge st-verified">verified</span></td></tr>
+<tr><td data-label="Requirement"><a class="idref" href="#NFR-OPS-001">NFR-OPS-001</a></td><td data-label="Implementation"><code>run.py</code>, <code>.gitignore</code></td><td data-label="Test"><a class="idref" href="#TEST-OPS-003">TEST-OPS-003</a></td><td data-label="Status"><span class="badge st-verified">verified</span></td></tr>
+<tr><td data-label="Requirement"><a class="idref" href="#NFR-SEC-001">NFR-SEC-001</a></td><td data-label="Implementation"><code>.gitignore</code>, <code>apps/srs-spec/.gitignore</code>, <code>apps/issue-export/.gitignore</code>, <code>apps/srs-spec/src/richtext.py</code></td><td data-label="Test"><a class="idref" href="#TEST-SEC-001">TEST-SEC-001</a></td><td data-label="Status"><span class="badge st-implemented">implemented</span></td></tr>
 </tbody>
 </table></div>
 <p>verified의 범위는 11절과 검증 기록으로 한정한다.</p>

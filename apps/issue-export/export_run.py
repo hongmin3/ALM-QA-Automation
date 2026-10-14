@@ -4,7 +4,6 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-import tempfile
 import uuid
 from datetime import datetime, timezone
 
@@ -43,7 +42,12 @@ class ExportRun:
             else:
                 import fcntl
                 fcntl.flock(self.lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-            self.stage = Path(tempfile.mkdtemp(prefix=f'.{self.target.name}.staging-', dir=self.target.parent))
+            # Not tempfile.mkdtemp(): on Windows (Python 3.13+) it sets a protected ACL
+            # (SYSTEM, Administrators, owner). An S4U task owns files as Administrators,
+            # so the logged-in user could not read the result. Inherit the parent's ACL.
+            stage = self.target.parent / f'.{self.target.name}.staging-{uuid.uuid4().hex}'
+            stage.mkdir()
+            self.stage = stage
         except BaseException:
             self.lock.close()
             raise
