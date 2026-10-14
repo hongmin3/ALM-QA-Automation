@@ -21,7 +21,8 @@
 | 특정 이슈를 검토·공유 | ID 또는 검색 쿼리 기반 PDF/HTML/Markdown, 댓글·첨부·연결 항목 |
 | 저장 결과에서 검토할 변경 찾기 | 관찰 모드의 변경 전후 근거, 중복 없는 후보와 검토 상태 |
 | 같은 작업을 다시 수행 | 공통 메뉴와 CLI, SRS 예약 실행 및 중복 실행 방지 |
-| 매일 검토 대상을 놓치지 않기 | 평일 09:00 통합 수집, 명시 링크 기반 우선순위, 영속 이메일 대기함 |
+| 매일 최신 이슈 문서 받기 | 평일 09:00 이슈 수집 예약 |
+| 검토 대상을 한 번에 정리 | 수동 통합 실행: 명시 링크 기반 우선순위, 영속 이메일 대기함 |
 
 ## 한눈에 보는 구조
 
@@ -159,7 +160,11 @@ python run.py issues -id SAMPLE-101 --timestamp --open
 
 인증값과 실제 운영 설정은 커밋하지 않습니다. 세부 옵션은 [SRS 사용법](apps/srs-spec/README.md)과 [이슈 내보내기 사용법](apps/issue-export/README.md)을 참고하세요. 앱별 문서의 명령은 해당 앱 폴더에서 실행합니다.
 
-통합 예약 작업은 `ALM_QA_Automation_Daily`이며 평일 09:00에 Root의 `automation.py`를 실행합니다. `scripts/install_automation_task.ps1 -Install -WhatIf`로 계획을 확인한 뒤 설치합니다. 기존 `VXvue_SRS_Spec_Automation` 및 `_CatchUp`은 첫 통합 데이터 성공 manifest를 확인해 `-FinalizeTransition`을 실행할 때만 비활성화하며 삭제하지 않습니다.
+예약 작업 `ALM_QA_Automation_Daily`는 평일 09:00에 이슈 수집만 합니다(`run.py issues ... --timestamp`). 결과는 `apps/issue-export/polarion_backup/<실행 시각>-<ID>/`에 쌓입니다.
+
+2026-10-13부터 SRS 수집·PDF 배포는 qa-verification-management-system의 `QA_SRS_Collect`가, 변경 분석과 요약 메일은 그 프로젝트의 QA Agent가 맡습니다. 그래서 이 저장소의 통합 실행(`automation.py`)은 예약하지 않고 필요할 때 수동으로 실행합니다.
+
+> `scripts/install_automation_task.ps1`은 예약을 통합 실행으로 다시 등록합니다. 실행하면 SRS 수집이 두 곳에서 돌기 때문에, 담당자와 확인하기 전에는 실행하지 마세요.
 
 ## 검증과 현재 범위
 
@@ -175,7 +180,8 @@ python -m pytest tests apps/srs-spec/tests -q
 | 제공 중 | 이슈 SUCCESS/PARTIAL/FAILED 및 이전 출력 보존, SRS 배정 누락 검사와 I/O 오류 복구 |
 | 제공 중 | 로컬 관찰 분석, 변경 근거와 후보 중복 방지, 검토 상태 저장 |
 | 로컬 합성 검증 완료 | SRS·이슈 통합 실행, 정확 ID 연계, 우선순위, 영속 알림 재시도·중복 방지 |
-| 로컬 설치 검증 완료 | 평일 09:00 통합 작업 등록·재조회, 성공 manifest 전 레거시 작업 비활성화 차단 |
+| 운영 중 | 평일 09:00 이슈 수집 예약(S4U), 결과 폴더 권한 상속 확인(2026-10-14) |
+| 사용 중지 | 통합 실행 예약 등록 스크립트(2026-10-13 전환) |
 | 운영 확인 필요 | 실제 서버 전체 수집, 실제 배포와 메일 수신, 장시간 예약 실행 |
 
 ## 완전 자동화 운영

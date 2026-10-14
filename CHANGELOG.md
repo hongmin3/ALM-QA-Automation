@@ -12,6 +12,9 @@
 
 ### Changed
 
+- REQ-ISSUE-003: 평일 09:00 예약 작업 `ALM_QA_Automation_Daily`가 이슈 수집만 한다는 사실을 요구사항으로 적었다. 2026-10-13 SRS 수집이 qa-verification-management-system으로 옮겨 간 뒤의 실제 동작이다.
+- REQ-AUTO-001: 통합 실행(`automation.py`)은 2026-10-13부터 예약 없이 수동으로만 실행한다. 검토 후보 분석과 메일은 qa-verification-management-system의 QA Agent가 맡는다.
+- REQ-AUTO-004: 통합 예약 등록 스크립트를 더 쓰지 않는 것으로 표시했다. 다시 실행하면 SRS 수집이 두 곳에서 돈다.
 - REQ-AUTO-003: 검토 후보 메일을 한국어 요약으로 바꿨다. 제목에 우선 확인 건수를, 본문에 중요도별 사양 번호·제목·바뀐 곳·연결 이슈·Polarion 링크를 적는다. 원자료 JSON은 첨부 파일 `alm_qa_candidates.json`으로만 붙인다. 실행 실패 메일도 한국어로 바꿨다.
 
 ### Removed

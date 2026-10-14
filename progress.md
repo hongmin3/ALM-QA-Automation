@@ -12,7 +12,8 @@
 - 같은 날 09:54에 예약 작업을 수동으로 한 번 실행했다(설정 변경 없음). 새 폴더 `20261014_095456-a799187e`는 소유자가 `BUILTIN\Administrators`지만 상위 권한을 이어받아 로그인 사용자가 읽는다. 결과는 `SUCCESS`, 종료 코드 0이다.
 - qa-verification-management-system의 `test_real_export_*` 4개는 복구 뒤와 새 실행 뒤 모두 통과했다.
 - 지식 `REF-scheduler-operations#registered-tasks`를 실제 작업 동작(`run.py issues ... --timestamp`)으로 고쳤다. SPEC REQ-AUTO-004와 README는 아직 `automation.py` 통합 실행을 기준으로 적혀 있어 사용자 확인이 필요하다.
-- 정리 도구는 `.pytest_cache`(2026-09-21 생성, 다른 계정 소유)의 접근 거부로 아직 멈춘다. 관리자 권한 복구가 필요하다.
+- 사용자가 `.pytest_cache` 권한을 복구한 뒤 정리 도구가 끝까지 돌았다(문서 67개 검사, 정리 대상 0개, 실패 0개).
+- 사용자 결정(A): 2026-10-13 전환을 의도한 상태로 확정했다. SPEC에 평일 09:00 이슈 수집 예약(REQ-ISSUE-003, TEST-ISSUE-002)과 4절 예약 실행 표를 추가하고, 통합 실행(REQ-AUTO-001)은 수동 전용, 예약 등록(REQ-AUTO-004)은 `deprecated`로 표시했다. README도 같은 기준으로 고쳤다. 예약 설정은 바꾸지 않았다.
 
 ## 2026-10-06 최신 사양서 수동 반영
 

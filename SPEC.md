@@ -25,7 +25,8 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 - 주간 사양서 예약 실행, 부팅 시 만회 판단, 중복 실행 잠금, 설정된 결과 메일.
 - 이슈 ID/검색어 기반 수집, 연결 항목·댓글·첨부 처리와 문서 출력.
 - 저장 결과 기반 관찰 분석과 후보 검토 상태 저장(알림 없음).
-- 평일 09:00 SRS·이슈 통합 수집, 명시적 링크 기반 영향 분석, 검토 우선순위, 영속 이메일 대기함과 재시도.
+- 평일 09:00 이슈 수집 예약(REQ-ISSUE-003).
+- SRS·이슈 통합 수집, 명시적 링크 기반 영향 분석, 검토 우선순위, 영속 이메일 대기함과 재시도. 2026-10-13부터 예약 없이 필요할 때 수동으로 실행한다.
 - 운영 설정과 원문 데이터의 Git 제외, 요구사항·코드·테스트 추적.
 
 ### 제외
@@ -43,7 +44,7 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 | `apps/srs-spec/` | 사양서 파이프라인과 기존 설정·데이터 | 앱 폴더가 상대 경로 기준 |
 | `apps/issue-export/` | 이슈 수집·문서 출력 | 별도 설정 형식 유지 |
 | `automation.py`, `automation_core/` | 통합 실행·연계 분석·후보·알림 대기함 | 기존 앱을 별도 프로세스로 호출 |
-| `scripts/install_automation_task.ps1` | 평일 09:00 통합 예약 작업 | 새 작업 검증 후 기존 SRS 작업 비활성화 |
+| `scripts/install_automation_task.ps1` | 통합 예약 작업 등록(2026-10-13부터 쓰지 않음, REQ-AUTO-004) | 다시 실행하면 예약이 통합 실행으로 바뀐다 |
 | Polarion REST API | 인증된 원본 항목·첨부 조회 | 외부 서버 가용성·권한에 의존 |
 | Chromium / SMTP / Windows Task Scheduler | PDF 변환 / 선택적 알림 / 예약 | 개별 단계 검증과 운영 검증 구분 |
 | Root Akela 컨텍스트 | AI 작업 판단 규칙 | SPEC의 제품 사양을 복제하지 않음 |
@@ -58,6 +59,14 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 6. 실행기는 자식 종료 코드를 그대로 반환한다. 종료 코드 0만으로 이슈 수집·PDF의 완전 성공을 판정하지 않는다(9절 참조).
 7. 통합 자동화는 SRS와 이슈가 모두 완전 성공한 경우에만 연계 분석하고 후보·알림 대기함을 갱신한다.
 8. 알림은 기존 SRS SMTP 설정을 사용하며 대기함 저장 후 발송한다. 발송 실패는 데이터 결과를 되돌리지 않는다.
+
+### 예약 실행
+
+| 시각(시간대) | 실행 위치 | 실행 내용 | 실행 조건 | 결과 저장 위치 | 알림 |
+|---|---|---|---|---|---|
+| 평일 09:00 (KST) | 담당자 PC 작업 스케줄러 `ALM_QA_Automation_Daily` | `run.py issues --config apps/issue-export/config.yaml --out apps/issue-export/polarion_backup --timestamp` | S4U(로그인하지 않아도 실행), 네트워크 필요, 놓친 실행은 다음 가능 시점에 1회, 겹치면 새 실행 무시, 실패 시 재시도 없음 | `apps/issue-export/polarion_backup/<실행 시각>-<ID>/` | 없음 |
+
+> **참고** 2026-10-13부터 SRS 수집·PDF 배포는 qa-verification-management-system의 `QA_SRS_Collect`가, 변경 분석과 요약 메일은 같은 프로젝트의 QA Agent가 맡는다. 이 저장소의 통합 실행(REQ-AUTO-001~003)은 예약하지 않는다.
 
 ## 5. 기능 요구사항
 
@@ -164,6 +173,23 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 - 관련 구현: `apps/issue-export/polarion_query_backup.py`, `run.py`.
 - 관련 테스트: TEST-ISSUE-001, TEST-OPS-001. PDF 변환 검증은 전체 이슈 수집 성공 증거가 아니다.
 
+### REQ-ISSUE-003 — 평일 09:00 이슈 수집 예약
+
+- 하는 일: 평일 아침마다 설정된 이슈를 자동으로 내보내, 사람과 다른 도구(qa-verification-management-system)가 최신 이슈 문서를 읽을 수 있게 한다.
+- 언제: 월~금 09:00(KST). PC가 꺼져 있었으면 다음에 켜졌을 때 한 번 실행한다.
+- 순서:
+  1. 작업 스케줄러가 `ALM_QA_Automation_Daily`를 S4U로 시작한다.
+  2. 저장소 Root에서 `run.py issues --config apps/issue-export/config.yaml --out apps/issue-export/polarion_backup --timestamp`를 실행한다.
+  3. 이슈 수집과 문서 출력은 REQ-ISSUE-001·REQ-ISSUE-002·REQ-OPS-002를 따른다.
+- 결과: `apps/issue-export/polarion_backup/<실행 시각>-<ID>/` 폴더 하나와 그 안의 manifest. 로그인 사용자가 읽을 수 있어야 한다(REQ-OPS-002 권한).
+- 설정: 네트워크 필요, 겹치면 새 실행 무시, 실행 제한 4시간, 실패 시 자동 재시도 없음.
+- 안 될 때: 결과 폴더 manifest의 `status`와 작업의 `LastTaskResult`를 본다. 실패한 실행은 이전 결과를 지우지 않는다.
+- 지킬 것: 이 작업은 이슈 수집만 한다. SRS 수집과 변경 분석·메일을 이 작업에 다시 넣지 않는다.
+
+이유: 2026-10-13부터 SRS 수집은 qa-verification-management-system의 `QA_SRS_Collect`가, 분석과 메일은 같은 프로젝트의 QA Agent가 맡는다. 다시 넣으면 같은 수집과 메일이 두 번 돈다.
+
+> **참고** 2026-10-13 전환은 qa-verification-management-system의 `scripts/install_srs_schedule.ps1`이 등록했다. 이 저장소의 `scripts/install_automation_task.ps1`(REQ-AUTO-004)로 다시 등록하지 않는다.
+
 ### REQ-OPS-001 — 결과 상태와 알림의 신뢰성
 
 - 목적: 일부 실패를 완전 성공으로 오인하지 않도록 한다.
@@ -199,7 +225,7 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 
 ### REQ-AUTO-001 — 통합 수집 오케스트레이션
 
-- 입력: 기존 SRS·이슈 설정, 통합 자동화 정책, 평일 예약 또는 수동 CLI 실행.
+- 입력: 기존 SRS·이슈 설정, 통합 자동화 정책, 수동 CLI 실행(`python automation.py`). 2026-10-13부터 예약 실행은 없다.
 - 동작: 단일 OS 잠금과 실행 ID 아래 SRS → 이슈 → 분석 → 대기함 → 발송을 순서대로 수행한다. 단계별 상태와 근거 경로를 manifest에 원자적으로 저장한다.
 - 기대 결과: 두 수집이 완전 성공한 경우에만 분석 기준선을 갱신한다. 첫 성공 입력은 후보 없이 기준선을 만들며, 같은 날 데이터 성공 실행이 있으면 미발송 대기함만 재처리할 수 있다.
 - 예외 처리: 설정 오류 2, 필수 데이터 단계 실패 1, 알림 대기/잠금 충돌 4, 전체 성공 0. 원문·비밀값·외부 오류 전문은 manifest에 기록하지 않는다.
@@ -238,6 +264,8 @@ QA 운영자가 하나의 프로그램에서 Polarion SRS 사양서와 변경 �
 - 관련 구현: `scripts/install_automation_task.ps1`. 관련 테스트: TEST-AUTO-004.
 
 > **참고** 검증 범위: 계획·실제 등록 재조회. 첫 실제 데이터 실행은 운영 확인.
+
+> **주의** 2026-10-13부터 이 등록 방식은 쓰지 않는다. 같은 작업 이름은 이슈 수집 예약(REQ-ISSUE-003)이 쓴다. 이 스크립트를 다시 실행하면 SRS 수집이 qa-verification-management-system과 겹쳐 두 번 돌므로, 실행 전에 담당자에게 확인한다.
 
 ## 6. 비기능 요구사항
 
@@ -360,6 +388,12 @@ PAT와 SMTP 자격증명은 환경변수 또는 Git 제외 운영 설정에서�
 - 절차: ID/쿼리 선택, 페이지 경계·중복·0건·제한, 첨부 실패, HTML/Markdown 링크와 이미지, 설정 미변경, 이전 결과 보존을 검증한다.
 - Expected Result: 선택한 항목과 산출물 일치; 실패·제한을 명확히 기록. 검증 전 verified로 표기하지 않음.
 
+### TEST-ISSUE-002
+
+- 검증 대상: REQ-ISSUE-003.
+- 절차: `Get-ScheduledTask -TaskName ALM_QA_Automation_Daily`로 트리거·동작·로그온 방식·설정을 읽어 위 요구사항과 비교한다. 예약 실행 뒤 새 결과 폴더의 manifest와 로그인 사용자 읽기 가능 여부를 확인한다.
+- Expected Result: 월~금 09:00, `run.py issues ... --timestamp`, S4U, StartWhenAvailable, IgnoreNew, 4시간 제한, 재시도 0. 새 결과 폴더가 읽히고 manifest가 있다.
+
 ### TEST-OPS-001
 
 - 검증 대상: REQ-SRS-002, REQ-ISSUE-002의 PDF 변환 경로.
@@ -436,13 +470,14 @@ PAT와 SMTP 자격증명은 환경변수 또는 Git 제외 운영 설정에서�
 | REQ-SRS-005 | `apps/srs-spec/scripts/install_task.ps1`, `apps/srs-spec/src/run_lock.py`, `apps/srs-spec/src/run_marker.py` | TEST-SRS-005 | implemented |
 | REQ-ISSUE-001 | `apps/issue-export/polarion_query_backup.py` | TEST-ISSUE-001 | implemented |
 | REQ-ISSUE-002 | `apps/issue-export/polarion_query_backup.py`, `run.py` | TEST-ISSUE-001, TEST-OPS-001 | implemented |
+| REQ-ISSUE-003 | `run.py`, `apps/issue-export/polarion_query_backup.py` | TEST-ISSUE-002 | implemented |
 | REQ-OPS-001 | `apps/issue-export/polarion_query_backup.py`, `apps/srs-spec/main.py`, `apps/srs-spec/src/notify.py` | TEST-OPS-002 | draft |
 | REQ-OPS-002 | `apps/issue-export/export_run.py`, `apps/issue-export/polarion_query_backup.py` | TEST-OPS-004, `tests/test_issue_reliability.py` | verified |
 | REQ-OBS-001 | `observation.py`, `run.py` | TEST-OBS-001 | verified |
 | REQ-AUTO-001 | `automation.py`, `automation_core/orchestrator.py`, `automation_core/state.py`, `apps/srs-spec/main.py` | TEST-AUTO-001, `tests/test_automation_orchestrator.py`, `apps/srs-spec/tests/test_main_options.py` | verified |
 | REQ-AUTO-002 | `automation_core/correlation.py`, `observation.py` | TEST-AUTO-002, `tests/test_automation_correlation.py`, `tests/test_observation.py` | verified |
 | REQ-AUTO-003 | `automation_core/email.py`, `automation_core/state.py`, `apps/srs-spec/src/notify.py` | TEST-AUTO-003, `tests/test_automation_email.py`, `apps/srs-spec/tests/test_notify.py` | verified |
-| REQ-AUTO-004 | `scripts/install_automation_task.ps1` | TEST-AUTO-004, `tests/test_automation_scheduler.py` | verified |
+| REQ-AUTO-004 | `scripts/install_automation_task.ps1` | TEST-AUTO-004, `tests/test_automation_scheduler.py` | deprecated |
 | NFR-OPS-001 | `run.py`, `.gitignore` | TEST-OPS-003 | verified |
 | NFR-SEC-001 | `.gitignore`, `apps/srs-spec/.gitignore`, `apps/issue-export/.gitignore`, `apps/srs-spec/src/richtext.py` | TEST-SEC-001 | implemented |
 
@@ -453,7 +488,7 @@ verified의 범위는 11절과 검증 기록으로 한정한다.
 - 실제 서버·출력 대상·수신자·예약 실행 시각은 보호된 운영 설정을 열람하지 않아 확인하지 않았다.
 - SRS 필수 이미지 실패의 중단 기준은 운영 정책 확인이 필요하다. 감소 허용치와 PDF 선택 정책은 설정값에 따라 검사한다.
 - 전체 이슈 수집/실제 배포/메일 수신/장시간 예약 실행은 운영 검증이 남아 있다.
-- 통합 자동화는 평일 09:00, 기존 이슈 쿼리, 명시 링크 기반 기본 중요도, 기존 SRS SMTP 이메일로 확정했다. 실제 수신자와 자격증명 값은 보호 설정에 유지한다.
+- 통합 자동화는 기존 이슈 쿼리, 명시 링크 기반 기본 중요도, 기존 SRS SMTP 이메일로 확정했다. 2026-10-13부터 예약 없이 수동으로만 실행한다. 실제 수신자와 자격증명 값은 보호 설정에 유지한다.
 
 ## 14. 향후 개선 후보
 
